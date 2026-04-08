@@ -201,12 +201,12 @@ class RaceEngine {
     ctx.clearRect(0, 0, W, H);
 
     this._drawSky(W, H);
+    this._drawStands(W, H);
     this._drawDistantDunes(W, H);
     this._drawMidDunes(W, H);
     this._drawGround(W, H);
     this._drawLanes(W, H);
     this._drawSceneObjects(W, H);
-    this._drawCrowd(W, H);
     this._drawFinishLine(W, H);
 
     // Particles behind ostriches
@@ -223,192 +223,277 @@ class RaceEngine {
   }
 
   _drawSky(W, H) {
-    const ctx = this.ctx;
-    const skyH = H * 0.63;
+    const ctx  = this.ctx;
+    const skyH = H * 0.575; // sky ends at stand base
+    const t    = this.elapsed / 1000;
 
-    // Deep sunset gradient — 5 stops
+    // ── Gradient: deep midnight-blue top → rich amber horizon ──
     const grad = ctx.createLinearGradient(0, 0, 0, skyH);
-    grad.addColorStop(0,    '#0a1628');
-    grad.addColorStop(0.18, '#1a2d50');
-    grad.addColorStop(0.45, '#c45a1a');
-    grad.addColorStop(0.75, '#e8821a');
-    grad.addColorStop(1,    '#f5b040');
+    grad.addColorStop(0,    '#06091a');
+    grad.addColorStop(0.12, '#0d1b38');
+    grad.addColorStop(0.30, '#1a2a5a');
+    grad.addColorStop(0.55, '#b84010');
+    grad.addColorStop(0.78, '#e86818');
+    grad.addColorStop(1,    '#f5aa30');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, skyH);
 
-    // Stars (only in top 30% of sky)
+    // ── Sunset crepuscular rays fanning from horizon ──
+    const rayOriginX = W * 0.62;
+    const rayOriginY = skyH * 0.95;
+    ctx.save();
+    for (let r = 0; r < 12; r++) {
+      const angle = -Math.PI * 0.5 - 0.55 + r * (Math.PI * 0.12);
+      const rayLen = skyH * 1.1;
+      const x2 = rayOriginX + Math.cos(angle) * rayLen;
+      const y2 = rayOriginY + Math.sin(angle) * rayLen;
+      const rayGrad = ctx.createLinearGradient(rayOriginX, rayOriginY, x2, y2);
+      rayGrad.addColorStop(0,   'rgba(255,180,60,0.07)');
+      rayGrad.addColorStop(0.5, 'rgba(255,140,30,0.04)');
+      rayGrad.addColorStop(1,   'rgba(255,100,0,0)');
+      ctx.fillStyle = rayGrad;
+      ctx.beginPath();
+      ctx.moveTo(rayOriginX, rayOriginY);
+      const spread = 0.04;
+      ctx.lineTo(
+        rayOriginX + Math.cos(angle - spread) * rayLen,
+        rayOriginY + Math.sin(angle - spread) * rayLen
+      );
+      ctx.lineTo(
+        rayOriginX + Math.cos(angle + spread) * rayLen,
+        rayOriginY + Math.sin(angle + spread) * rayLen
+      );
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // ── Stars: visible in top 40% ──
     if (!this._stars) {
       this._stars = [];
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < 180; i++) {
         this._stars.push({
-          x: Math.random(),
-          y: Math.random() * 0.28,
-          r: 0.5 + Math.random() * 1.2,
+          x:       Math.random(),
+          y:       Math.random() * 0.38,
+          r:       0.4 + Math.random() * 1.4,
           twinkle: Math.random() * Math.PI * 2,
+          speed:   0.8 + Math.random() * 1.2,
         });
       }
     }
-    const t = this.elapsed / 1000;
     this._stars.forEach(s => {
-      const alpha = 0.3 + Math.sin(t * 1.5 + s.twinkle) * 0.25;
-      ctx.fillStyle = `rgba(255,255,240,${alpha})`;
+      const alpha = Math.max(0, 0.25 + Math.sin(t * s.speed + s.twinkle) * 0.3);
+      ctx.fillStyle = `rgba(255,255,245,${alpha})`;
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * skyH, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
 
-    // Atmospheric haze band near horizon
-    const hazeGrad = ctx.createLinearGradient(0, skyH * 0.72, 0, skyH);
-    hazeGrad.addColorStop(0, 'rgba(255,180,80,0)');
-    hazeGrad.addColorStop(1, 'rgba(255,200,100,0.18)');
-    ctx.fillStyle = hazeGrad;
-    ctx.fillRect(0, skyH * 0.72, W, skyH * 0.28);
+    // ── Sun position (parallax, drifts right as camera moves) ──
+    const sunScroll = this.cameraX * 0.04;
+    const sunX = ((W * 0.68 - sunScroll % W) + W * 2) % W;
+    const sunY = skyH * 0.82;
+    const sunR = 48;
 
-    // Sun with corona rays
-    const sunScroll = (this.cameraX * CONFIG.PARALLAX[0]) % W;
-    const sunX = ((W * 0.75 - sunScroll) % W + W) % W;
-    const sunY = H * 0.12;
-    const sunR = 52;
-
-    // Corona glow
-    const corona = ctx.createRadialGradient(sunX, sunY, sunR * 0.4, sunX, sunY, sunR * 3.5);
-    corona.addColorStop(0,   'rgba(255,220,80,0.45)');
-    corona.addColorStop(0.4, 'rgba(255,160,30,0.18)');
-    corona.addColorStop(1,   'rgba(255,100,0,0)');
-    ctx.fillStyle = corona;
+    // Outer glow
+    const coronaOuter = ctx.createRadialGradient(sunX, sunY, sunR, sunX, sunY, sunR * 5);
+    coronaOuter.addColorStop(0,   'rgba(255,200,60,0.28)');
+    coronaOuter.addColorStop(0.35,'rgba(255,140,20,0.12)');
+    coronaOuter.addColorStop(1,   'rgba(255,80,0,0)');
+    ctx.fillStyle = coronaOuter;
     ctx.beginPath();
-    ctx.arc(sunX, sunY, sunR * 3.5, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, sunR * 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner halo
+    const coronaInner = ctx.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 1.8);
+    coronaInner.addColorStop(0,   'rgba(255,240,140,0.5)');
+    coronaInner.addColorStop(1,   'rgba(255,180,40,0)');
+    ctx.fillStyle = coronaInner;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR * 1.8, 0, Math.PI * 2);
     ctx.fill();
 
     // Sun disc
-    const sunDisc = ctx.createRadialGradient(sunX - sunR * 0.25, sunY - sunR * 0.25, 0, sunX, sunY, sunR);
-    sunDisc.addColorStop(0,   '#fff8d0');
-    sunDisc.addColorStop(0.5, '#ffe060');
-    sunDisc.addColorStop(1,   '#ff9500');
+    const sunDisc = ctx.createRadialGradient(sunX - sunR * 0.3, sunY - sunR * 0.3, 0, sunX, sunY, sunR);
+    sunDisc.addColorStop(0,   '#fffce0');
+    sunDisc.addColorStop(0.45,'#ffe860');
+    sunDisc.addColorStop(0.8, '#ffb020');
+    sunDisc.addColorStop(1,   '#ff7800');
     ctx.fillStyle = sunDisc;
     ctx.beginPath();
     ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Thin clouds
+    // ── Volumetric clouds: multi-puff style ──
     if (!this._clouds) {
       this._clouds = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 14; i++) {
+        const puffCount = 3 + Math.floor(Math.random() * 5);
+        const puffs = [];
+        for (let p = 0; p < puffCount; p++) {
+          puffs.push({
+            ox: (Math.random() - 0.3) * 180,
+            oy: (Math.random() - 0.5) * 30,
+            r:  28 + Math.random() * 55,
+          });
+        }
         this._clouds.push({
-          x: Math.random() * CONFIG.TRACK_LENGTH * 1.2,
-          yFrac: 0.1 + Math.random() * 0.3,
-          w: 120 + Math.random() * 220,
-          h: 18 + Math.random() * 28,
-          alpha: 0.06 + Math.random() * 0.1,
+          worldX: Math.random() * CONFIG.TRACK_LENGTH * 1.3,
+          yFrac:  0.04 + Math.random() * 0.55,
+          puffs,
+          alpha:  0.10 + Math.random() * 0.18,
+          speed:  0.012 + Math.random() * 0.018, // drift speed
+          drift:  Math.random() * 1000,
         });
       }
     }
     this._clouds.forEach(c => {
-      const cx = c.x - this.cameraX * CONFIG.PARALLAX[0] * 0.5;
+      const cx = (c.worldX + t * c.speed * 60 - this.cameraX * 0.04) % (W * 1.8);
       const cy = skyH * c.yFrac;
-      const cloudGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, c.w * 0.5);
-      cloudGrad.addColorStop(0,   `rgba(255,210,160,${c.alpha})`);
-      cloudGrad.addColorStop(0.6, `rgba(255,180,100,${c.alpha * 0.5})`);
-      cloudGrad.addColorStop(1,   'rgba(255,150,80,0)');
-      ctx.fillStyle = cloudGrad;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, c.w * 0.5, c.h * 0.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // Tint: high clouds are blue-white, low are amber
+      const lowness = c.yFrac;  // 0=top, 1=horizon
+      const rr = Math.floor(220 + lowness * 35);
+      const gg = Math.floor(180 + lowness * 20);
+      const bb = Math.floor(220 - lowness * 140);
+
+      c.puffs.forEach(p => {
+        const pg = ctx.createRadialGradient(cx + p.ox, cy + p.oy - p.r * 0.2, 0, cx + p.ox, cy + p.oy, p.r);
+        pg.addColorStop(0,   `rgba(${rr},${gg},${bb},${c.alpha})`);
+        pg.addColorStop(0.6, `rgba(${rr-20},${gg-20},${bb-40},${c.alpha * 0.55})`);
+        pg.addColorStop(1,   `rgba(${rr-40},${gg-40},${bb-80},0)`);
+        ctx.fillStyle = pg;
+        ctx.beginPath();
+        ctx.arc(cx + p.ox, cy + p.oy, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
     });
+
+    // ── Horizon atmospheric haze ──
+    const hazeGrad = ctx.createLinearGradient(0, skyH * 0.78, 0, skyH);
+    hazeGrad.addColorStop(0,   'rgba(255,160,60,0)');
+    hazeGrad.addColorStop(0.5, 'rgba(255,180,80,0.14)');
+    hazeGrad.addColorStop(1,   'rgba(255,200,100,0.28)');
+    ctx.fillStyle = hazeGrad;
+    ctx.fillRect(0, skyH * 0.78, W, skyH * 0.22);
   }
 
   _drawDistantDunes(W, H) {
-    const ctx = this.ctx;
+    const ctx    = this.ctx;
     const scroll = (this.cameraX * CONFIG.PARALLAX[1]) % W;
+    const base   = H * 0.575; // align to stand horizon
 
-    // Shadow layer (darker, further back)
-    ctx.fillStyle = '#6b3a1f';
+    // Atmospheric haze overlay — makes far dunes look hazy/distant
+    const hazeLayer = ctx.createLinearGradient(0, base * 0.62, 0, base);
+    hazeLayer.addColorStop(0,   'rgba(140,100,60,0)');
+    hazeLayer.addColorStop(1,   'rgba(180,120,60,0.22)');
+
+    // Dark shadow silhouette (furthest, most faded)
+    const shadowColor = 'rgba(90,45,18,0.75)';
+    ctx.fillStyle = shadowColor;
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox, H * 0.56);
-      ctx.bezierCurveTo(ox + W * 0.12, H * 0.40, ox + W * 0.25, H * 0.44, ox + W * 0.38, H * 0.53);
-      ctx.bezierCurveTo(ox + W * 0.50, H * 0.43, ox + W * 0.62, H * 0.36, ox + W * 0.73, H * 0.47);
-      ctx.bezierCurveTo(ox + W * 0.83, H * 0.39, ox + W * 0.91, H * 0.45, ox + W, H * 0.53);
-      ctx.lineTo(ox + W, H * 0.56);
+      ctx.moveTo(ox,          base);
+      ctx.bezierCurveTo(ox + W*0.12, base*0.67, ox + W*0.25, base*0.73, ox + W*0.38, base*0.88);
+      ctx.bezierCurveTo(ox + W*0.50, base*0.71, ox + W*0.62, base*0.60, ox + W*0.73, base*0.78);
+      ctx.bezierCurveTo(ox + W*0.83, base*0.66, ox + W*0.91, base*0.75, ox + W,      base);
       ctx.closePath();
       ctx.fill();
     }
 
-    // Main silhouette
-    const dg = ctx.createLinearGradient(0, H * 0.35, 0, H * 0.56);
-    dg.addColorStop(0, '#8a4a22');
-    dg.addColorStop(1, '#b86830');
+    // Main dune silhouette — 3-stop gradient for depth
+    const dg = ctx.createLinearGradient(0, base * 0.55, 0, base);
+    dg.addColorStop(0,   '#7a3c18');
+    dg.addColorStop(0.5, '#a05828');
+    dg.addColorStop(1,   '#c07838');
     ctx.fillStyle = dg;
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox, H * 0.56);
-      ctx.bezierCurveTo(ox + W * 0.15, H * 0.37, ox + W * 0.28, H * 0.41, ox + W * 0.4, H * 0.52);
-      ctx.bezierCurveTo(ox + W * 0.52, H * 0.41, ox + W * 0.65, H * 0.34, ox + W * 0.75, H * 0.46);
-      ctx.bezierCurveTo(ox + W * 0.85, H * 0.37, ox + W * 0.92, H * 0.43, ox + W, H * 0.52);
-      ctx.lineTo(ox + W, H * 0.56);
+      ctx.moveTo(ox,          base);
+      ctx.bezierCurveTo(ox + W*0.15, base*0.62, ox + W*0.28, base*0.69, ox + W*0.4,  base*0.87);
+      ctx.bezierCurveTo(ox + W*0.52, base*0.69, ox + W*0.65, base*0.58, ox + W*0.75, base*0.77);
+      ctx.bezierCurveTo(ox + W*0.85, base*0.63, ox + W*0.92, base*0.72, ox + W,      base);
       ctx.closePath();
       ctx.fill();
     }
 
-    // Highlight ridge on top
-    ctx.strokeStyle = 'rgba(255,180,80,0.15)';
-    ctx.lineWidth = 2;
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox + W * 0.15, H * 0.37);
-      ctx.bezierCurveTo(ox + W * 0.28, H * 0.41, ox + W * 0.4, H * 0.52, ox + W * 0.52, H * 0.41);
-      ctx.bezierCurveTo(ox + W * 0.65, H * 0.34, ox + W * 0.75, H * 0.46, ox + W * 0.85, H * 0.37);
-      ctx.stroke();
-    }
-  }
-
-  _drawMidDunes(W, H) {
-    const ctx = this.ctx;
-    const scroll = (this.cameraX * CONFIG.PARALLAX[2]) % W;
-
-    // Shadow underside
-    ctx.fillStyle = '#7a4520';
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox, H * 0.64);
-      ctx.bezierCurveTo(ox + W * 0.1, H * 0.52, ox + W * 0.22, H * 0.57, ox + W * 0.35, H * 0.62);
-      ctx.bezierCurveTo(ox + W * 0.48, H * 0.52, ox + W * 0.58, H * 0.49, ox + W * 0.7, H * 0.58);
-      ctx.bezierCurveTo(ox + W * 0.82, H * 0.50, ox + W * 0.9, H * 0.54, ox + W, H * 0.62);
-      ctx.lineTo(ox + W, H * 0.64);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Main mid-dune with gradient
-    const mg = ctx.createLinearGradient(0, H * 0.46, 0, H * 0.63);
-    mg.addColorStop(0, '#e0a050');
-    mg.addColorStop(1, '#c07838');
-    ctx.fillStyle = mg;
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox, H * 0.63);
-      ctx.bezierCurveTo(ox + W * 0.1, H * 0.50, ox + W * 0.22, H * 0.55, ox + W * 0.35, H * 0.60);
-      ctx.bezierCurveTo(ox + W * 0.48, H * 0.50, ox + W * 0.58, H * 0.46, ox + W * 0.7, H * 0.56);
-      ctx.bezierCurveTo(ox + W * 0.82, H * 0.47, ox + W * 0.9, H * 0.52, ox + W, H * 0.60);
-      ctx.lineTo(ox + W, H * 0.63);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Bright ridge highlight
-    ctx.strokeStyle = 'rgba(255,210,120,0.22)';
+    // Sunlit ridge highlight
+    ctx.strokeStyle = 'rgba(255,190,90,0.18)';
     ctx.lineWidth = 2.5;
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox + W * 0.1, H * 0.50);
-      ctx.bezierCurveTo(ox + W * 0.22, H * 0.55, ox + W * 0.35, H * 0.60, ox + W * 0.48, H * 0.50);
-      ctx.bezierCurveTo(ox + W * 0.58, H * 0.46, ox + W * 0.7, H * 0.56, ox + W * 0.82, H * 0.47);
+      ctx.moveTo(ox + W*0.15, base*0.62);
+      ctx.bezierCurveTo(ox + W*0.28, base*0.69, ox + W*0.4, base*0.87, ox + W*0.52, base*0.69);
+      ctx.bezierCurveTo(ox + W*0.65, base*0.58, ox + W*0.75, base*0.77, ox + W*0.85, base*0.63);
+      ctx.stroke();
+    }
+
+    // Atmospheric haze on top of distant dunes
+    ctx.fillStyle = hazeLayer;
+    ctx.fillRect(0, base * 0.55, W, base * 0.45);
+  }
+
+  _drawMidDunes(W, H) {
+    const ctx    = this.ctx;
+    const scroll = (this.cameraX * CONFIG.PARALLAX[2]) % W;
+    const base   = H * 0.63; // ground starts here
+    const top    = H * 0.575;
+
+    // Dark shadow base
+    ctx.fillStyle = 'rgba(100,55,18,0.9)';
+    for (let rep = -1; rep <= 1; rep++) {
+      const ox = rep * W - scroll;
+      ctx.beginPath();
+      ctx.moveTo(ox,          base);
+      ctx.bezierCurveTo(ox + W*0.10, base*0.83, ox + W*0.22, base*0.89, ox + W*0.35, base*0.97);
+      ctx.bezierCurveTo(ox + W*0.48, base*0.83, ox + W*0.58, base*0.78, ox + W*0.70, base*0.92);
+      ctx.bezierCurveTo(ox + W*0.82, base*0.80, ox + W*0.90, base*0.86, ox + W,      base);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Main mid-dune — warm golden sand
+    const mg = ctx.createLinearGradient(0, top, 0, base);
+    mg.addColorStop(0,   '#dba060');
+    mg.addColorStop(0.4, '#c88840');
+    mg.addColorStop(1,   '#b06828');
+    ctx.fillStyle = mg;
+    for (let rep = -1; rep <= 1; rep++) {
+      const ox = rep * W - scroll;
+      ctx.beginPath();
+      ctx.moveTo(ox,          base);
+      ctx.bezierCurveTo(ox + W*0.10, base*0.80, ox + W*0.22, base*0.87, ox + W*0.35, base*0.95);
+      ctx.bezierCurveTo(ox + W*0.48, base*0.80, ox + W*0.58, base*0.74, ox + W*0.70, base*0.89);
+      ctx.bezierCurveTo(ox + W*0.82, base*0.76, ox + W*0.90, base*0.83, ox + W,      base);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Bright sunlit ridge
+    ctx.strokeStyle = 'rgba(255,220,130,0.30)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (let rep = -1; rep <= 1; rep++) {
+      const ox = rep * W - scroll;
+      ctx.beginPath();
+      ctx.moveTo(ox + W*0.10, base*0.80);
+      ctx.bezierCurveTo(ox + W*0.22, base*0.87, ox + W*0.35, base*0.95, ox + W*0.48, base*0.80);
+      ctx.bezierCurveTo(ox + W*0.58, base*0.74, ox + W*0.70, base*0.89, ox + W*0.82, base*0.76);
+      ctx.stroke();
+    }
+
+    // Secondary specular highlight (thinner, brighter)
+    ctx.strokeStyle = 'rgba(255,240,180,0.15)';
+    ctx.lineWidth = 1.5;
+    for (let rep = -1; rep <= 1; rep++) {
+      const ox = rep * W - scroll;
+      ctx.beginPath();
+      ctx.moveTo(ox + W*0.10, base*0.795);
+      ctx.bezierCurveTo(ox + W*0.22, base*0.865, ox + W*0.35, base*0.945, ox + W*0.48, base*0.795);
+      ctx.bezierCurveTo(ox + W*0.58, base*0.735, ox + W*0.70, base*0.885, ox + W*0.82, base*0.755);
       ctx.stroke();
     }
   }
@@ -949,6 +1034,260 @@ class RaceEngine {
 
       ctx.restore();
     });
+  }
+
+  // ─── STADIUM GRANDSTANDS ───────────────────────
+  _drawStands(W, H) {
+    const ctx  = this.ctx;
+    const t    = this.elapsed / 1000;
+
+    // The stands sit in the sky zone: from ~H*0.04 down to ~H*0.56 (horizon)
+    // We draw them as a continuous strip that parallax-scrolls slowly
+    const standBaseY  = H * 0.575;   // bottom edge of stands = horizon line
+    const standTopY   = H * 0.04;    // top of highest tier
+    const standH      = standBaseY - standTopY;
+    const numTiers    = 7;            // rows of seating
+    const tierH       = standH / numTiers;
+
+    // How wide one "section" repeating unit is
+    const sectionW    = 320;
+    const scroll      = (this.cameraX * 0.08) % sectionW; // very slow parallax
+
+    // Pre-generate stand fan/crowd data once (fixed pool of 60 sections)
+    if (!this._standSections) {
+      this._standSections = [];
+      for (let s = 0; s < 60; s++) {
+        const fans = [];
+        for (let tier = 0; tier < numTiers; tier++) {
+          const fansInRow = Math.floor(sectionW / 14);
+          for (let f = 0; f < fansInRow; f++) {
+            const hue = Math.floor(Math.random() * 360);
+            fans.push({
+              tier,
+              col: f,
+              hue,
+              saturation: 55 + Math.random() * 35,
+              lightness:  48 + Math.random() * 22,
+              bobOffset:  Math.random() * Math.PI * 2,
+              armPhase:   Math.random() * Math.PI * 2,
+              waving:     Math.random() > 0.45,
+              hasFlag:    Math.random() > 0.78,
+              flagHue:    Math.floor(Math.random() * 360),
+            });
+          }
+        }
+        this._standSections.push({ fans });
+      }
+
+      // Floodlight pylons: fixed world positions every ~800 units
+      this._pylons = [];
+      const pylonCount = Math.ceil(CONFIG.TRACK_LENGTH / 800) + 2;
+      for (let i = 0; i < pylonCount; i++) {
+        this._pylons.push({ worldX: 400 + i * 800 + Math.random() * 80 });
+      }
+    }
+
+    // ── 1. Concrete stand backdrop ──────────────────
+    const backdropGrad = ctx.createLinearGradient(0, standTopY, 0, standBaseY);
+    backdropGrad.addColorStop(0,   '#1a1a2e');
+    backdropGrad.addColorStop(0.3, '#16213e');
+    backdropGrad.addColorStop(0.7, '#0f3460');
+    backdropGrad.addColorStop(1,   '#1a3050');
+    ctx.fillStyle = backdropGrad;
+    ctx.fillRect(0, standTopY, W, standH);
+
+    // ── 2. Tier steps (concrete edges) ──────────────
+    for (let tier = 0; tier < numTiers; tier++) {
+      const ty = standTopY + tierH * (tier + 1);
+      // Concrete step shadow
+      const stepGrad = ctx.createLinearGradient(0, ty - 4, 0, ty + 6);
+      stepGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+      stepGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = stepGrad;
+      ctx.fillRect(0, ty - 4, W, 10);
+
+      // Concrete edge highlight
+      ctx.strokeStyle = 'rgba(180,180,220,0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, ty);
+      ctx.lineTo(W, ty);
+      ctx.stroke();
+    }
+
+    // ── 3. Vertical section dividers ────────────────
+    for (let sx = -scroll; sx < W + sectionW; sx += sectionW) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, standTopY);
+      ctx.lineTo(sx, standBaseY);
+      ctx.stroke();
+    }
+
+    // ── 4. Draw fans in seats ───────────────────────
+    const totalSections = Math.ceil(W / sectionW) + 3;
+    const firstSec = Math.floor(scroll / sectionW);
+
+    for (let si = 0; si < totalSections; si++) {
+      const secIdx   = ((firstSec + si) % this._standSections.length + this._standSections.length) % this._standSections.length;
+      const sec      = this._standSections[secIdx];
+      const secLeft  = si * sectionW - (scroll % sectionW);
+
+      sec.fans.forEach(fan => {
+        const tierTop  = standTopY + tierH * fan.tier;
+        const tierMid  = tierTop + tierH * 0.38;
+        const fx       = secLeft + fan.col * 14 + 7;
+        const headR    = Math.max(2, tierH * 0.16);
+        const bob      = fan.waving ? Math.sin(t * 2.2 + fan.bobOffset) * headR * 0.9 : Math.sin(t * 0.8 + fan.bobOffset) * headR * 0.3;
+
+        // Seat (coloured plastic bucket seat)
+        const seatH = tierH * 0.35;
+        ctx.fillStyle = `hsl(${fan.hue},${fan.saturation}%,25%)`;
+        ctx.beginPath();
+        ctx.roundRect(fx - headR * 0.9, tierMid + headR * 1.4, headR * 1.8, seatH, 2);
+        ctx.fill();
+
+        // Body
+        ctx.fillStyle = `hsl(${fan.hue},${fan.saturation}%,${fan.lightness - 12}%)`;
+        ctx.beginPath();
+        ctx.ellipse(fx, tierMid + headR * 1.1, headR * 0.85, headR * 1.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        const skinTones = ['#f5c5a0','#e8a870','#c87840','#8b5e3c','#5c3520'];
+        ctx.fillStyle = skinTones[Math.abs(fan.col * 7 + fan.tier * 3) % skinTones.length];
+        ctx.beginPath();
+        ctx.arc(fx, tierMid + bob, headR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Waving arm
+        if (fan.waving) {
+          const armAngle = -1.1 + Math.sin(t * 2.8 + fan.armPhase) * 0.7;
+          ctx.strokeStyle = `hsl(${fan.hue},${fan.saturation}%,${fan.lightness}%)`;
+          ctx.lineWidth = Math.max(1, headR * 0.55);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(fx + headR * 0.7, tierMid + headR * 0.9 + bob);
+          ctx.lineTo(
+            fx + headR * 0.7 + Math.cos(armAngle) * headR * 2.2,
+            tierMid + headR * 0.9 + bob + Math.sin(armAngle) * headR * 2.2
+          );
+          ctx.stroke();
+        }
+
+        // Flag
+        if (fan.hasFlag) {
+          const flagX = fx;
+          const flagY = tierMid - headR * 1.2 + bob;
+          // Pole
+          ctx.strokeStyle = 'rgba(200,200,200,0.8)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(flagX, flagY);
+          ctx.lineTo(flagX, flagY - headR * 4);
+          ctx.stroke();
+          // Flag cloth
+          const wave = Math.sin(t * 3.5 + fan.bobOffset) * headR * 0.8;
+          ctx.fillStyle = `hsl(${fan.flagHue},80%,55%)`;
+          ctx.beginPath();
+          ctx.moveTo(flagX, flagY - headR * 4);
+          ctx.quadraticCurveTo(flagX + headR * 2 + wave, flagY - headR * 3.2, flagX + headR * 2.2 + wave, flagY - headR * 2.4);
+          ctx.lineTo(flagX, flagY - headR * 2.4);
+          ctx.closePath();
+          ctx.fill();
+        }
+      });
+    }
+
+    // ── 5. Horizontal banner strips between tiers ───
+    const bannerColors = ['#e74c3c','#f39c12','#2ecc71','#3498db','#9b59b6','#1abc9c'];
+    for (let tier = 1; tier < numTiers; tier += 2) {
+      const by = standTopY + tierH * tier - 3;
+      ctx.fillStyle = bannerColors[tier % bannerColors.length];
+      ctx.globalAlpha = 0.22;
+      ctx.fillRect(0, by, W, 6);
+      ctx.globalAlpha = 1;
+    }
+
+    // ── 6. Floodlight pylons ─────────────────────────
+    this._pylons.forEach(p => {
+      const px = p.worldX - this.cameraX * 0.08;
+      if (px < -60 || px > W + 60) return;
+      const pBase = standBaseY;
+      const pTop  = standTopY - H * 0.06;
+      const pW    = 8;
+
+      // Pylon shaft
+      const pylGrad = ctx.createLinearGradient(px - pW / 2, 0, px + pW / 2, 0);
+      pylGrad.addColorStop(0, '#555');
+      pylGrad.addColorStop(0.5, '#aaa');
+      pylGrad.addColorStop(1, '#555');
+      ctx.fillStyle = pylGrad;
+      ctx.fillRect(px - pW / 2, pTop, pW, pBase - pTop);
+
+      // Cross arm
+      ctx.fillStyle = '#888';
+      ctx.fillRect(px - 30, pTop + 8, 60, 5);
+
+      // Lamp fixtures
+      [-24, -10, 6, 20].forEach(lx => {
+        const lg = ctx.createRadialGradient(px + lx, pTop + 10, 0, px + lx, pTop + 10, 14);
+        lg.addColorStop(0,   'rgba(255,255,180,0.95)');
+        lg.addColorStop(0.4, 'rgba(255,240,120,0.5)');
+        lg.addColorStop(1,   'rgba(255,220,80,0)');
+        ctx.fillStyle = lg;
+        ctx.beginPath();
+        ctx.arc(px + lx, pTop + 10, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffcc';
+        ctx.beginPath();
+        ctx.ellipse(px + lx, pTop + 10, 5, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Cone of light downward
+      const coneGrad = ctx.createLinearGradient(px, pTop + 14, px, standBaseY);
+      coneGrad.addColorStop(0, 'rgba(255,255,180,0.06)');
+      coneGrad.addColorStop(1, 'rgba(255,255,180,0)');
+      ctx.fillStyle = coneGrad;
+      ctx.beginPath();
+      ctx.moveTo(px - 28, pTop + 14);
+      ctx.lineTo(px + 28, pTop + 14);
+      ctx.lineTo(px + 80, standBaseY);
+      ctx.lineTo(px - 80, standBaseY);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // ── 7. Overlay gradient to blend stands into horizon ──
+    const blendGrad = ctx.createLinearGradient(0, standBaseY - H * 0.08, 0, standBaseY);
+    blendGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    blendGrad.addColorStop(1, 'rgba(20,10,5,0.55)');
+    ctx.fillStyle = blendGrad;
+    ctx.fillRect(0, standBaseY - H * 0.08, W, H * 0.08);
+
+    // ── 8. Track-side barrier / advertising hoardings ──
+    const barrierY = standBaseY;
+    const barrierH = H * 0.025;
+    const adColors = ['#e74c3c','#f39c12','#3498db','#27ae60','#8e44ad','#e67e22'];
+    const adW = 90;
+    const adScroll = (this.cameraX * 0.95) % adW;
+    for (let ax = -adScroll; ax < W + adW; ax += adW) {
+      const ci = Math.floor((ax + adScroll) / adW) % adColors.length;
+      ctx.fillStyle = adColors[((ci % adColors.length) + adColors.length) % adColors.length];
+      ctx.fillRect(ax, barrierY, adW - 2, barrierH);
+      // White text placeholder stripe
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(ax + 8, barrierY + barrierH * 0.3, adW - 18, barrierH * 0.4);
+    }
+    // Barrier top edge
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, barrierY);
+    ctx.lineTo(W, barrierY);
+    ctx.stroke();
   }
 
   _drawVignette(W, H) {
