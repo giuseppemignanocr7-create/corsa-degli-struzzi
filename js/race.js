@@ -1036,258 +1036,161 @@ class RaceEngine {
     });
   }
 
-  // ─── STADIUM GRANDSTANDS ───────────────────────
+  // ─── STADIUM GRANDSTANDS (clean impressionistic) ───
   _drawStands(W, H) {
-    const ctx  = this.ctx;
-    const t    = this.elapsed / 1000;
+    const ctx = this.ctx;
+    const t   = this.elapsed / 1000;
 
-    // The stands sit in the sky zone: from ~H*0.04 down to ~H*0.56 (horizon)
-    // We draw them as a continuous strip that parallax-scrolls slowly
-    const standBaseY  = H * 0.575;   // bottom edge of stands = horizon line
-    const standTopY   = H * 0.04;    // top of highest tier
-    const standH      = standBaseY - standTopY;
-    const numTiers    = 7;            // rows of seating
-    const tierH       = standH / numTiers;
+    // STATIC — no camera scroll. Stands are a fixed backdrop.
+    const topY  = H * 0.04;   // top of stand area
+    const baseY = H * 0.575;  // bottom — where dunes begin
+    const standH = baseY - topY;
 
-    // How wide one "section" repeating unit is
-    const sectionW    = 320;
-    const scroll      = (this.cameraX * 0.08) % sectionW; // very slow parallax
+    // ── 1. Background: dark concrete fill ────────────
+    const bg = ctx.createLinearGradient(0, topY, 0, baseY);
+    bg.addColorStop(0,    '#12152a');
+    bg.addColorStop(0.5,  '#1c2240');
+    bg.addColorStop(1,    '#28304a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, topY, W, standH);
 
-    // Pre-generate stand fan/crowd data once (fixed pool of 60 sections)
-    if (!this._standSections) {
-      this._standSections = [];
-      for (let s = 0; s < 60; s++) {
-        const fans = [];
-        for (let tier = 0; tier < numTiers; tier++) {
-          const fansInRow = Math.floor(sectionW / 14);
-          for (let f = 0; f < fansInRow; f++) {
-            const hue = Math.floor(Math.random() * 360);
-            fans.push({
-              tier,
-              col: f,
-              hue,
-              saturation: 55 + Math.random() * 35,
-              lightness:  48 + Math.random() * 22,
-              bobOffset:  Math.random() * Math.PI * 2,
-              armPhase:   Math.random() * Math.PI * 2,
-              waving:     Math.random() > 0.45,
-              hasFlag:    Math.random() > 0.78,
-              flagHue:    Math.floor(Math.random() * 360),
-            });
-          }
+    // ── 2. Tier rows: alternating concrete steps ─────
+    // Each "row" is a thick band — darker concrete + lighter crowd zone
+    const numRows = 9;
+    const rowH    = standH / numRows;
+
+    // Pre-generate crowd color patches once (static, indexed by row & x-cell)
+    if (!this._crowdMap) {
+      this._crowdMap = [];
+      const cellW = 48; // width of each color cell
+      const cols  = Math.ceil(W / cellW) + 2;
+      for (let row = 0; row < numRows; row++) {
+        this._crowdMap[row] = [];
+        for (let col = 0; col < cols; col++) {
+          // Each cell is a hue — mix of warm tones (jerseys) with occasional bright accent
+          const hue = Math.floor(Math.random() * 360);
+          const sat = 40 + Math.random() * 45;
+          const lit = 28 + Math.random() * 22;
+          this._crowdMap[row][col] = { hue, sat, lit,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.6 + Math.random() * 0.8,
+          };
         }
-        this._standSections.push({ fans });
       }
-
-      // Floodlight pylons: fixed world positions every ~800 units
-      this._pylons = [];
-      const pylonCount = Math.ceil(CONFIG.TRACK_LENGTH / 800) + 2;
-      for (let i = 0; i < pylonCount; i++) {
-        this._pylons.push({ worldX: 400 + i * 800 + Math.random() * 80 });
+      // A handful of large banner / tifo rectangles spanning multiple cells
+      this._tifos = [];
+      const tifoColors = ['#c0392b','#e67e22','#f1c40f','#27ae60','#2980b9','#8e44ad'];
+      for (let i = 0; i < 5; i++) {
+        this._tifos.push({
+          xFrac:  0.05 + Math.random() * 0.82,
+          row:    Math.floor(Math.random() * (numRows - 2)) + 1,
+          wFrac:  0.06 + Math.random() * 0.10,
+          color:  tifoColors[i % tifoColors.length],
+          phase:  Math.random() * Math.PI * 2,
+        });
       }
     }
 
-    // ── 1. Concrete stand backdrop ──────────────────
-    const backdropGrad = ctx.createLinearGradient(0, standTopY, 0, standBaseY);
-    backdropGrad.addColorStop(0,   '#1a1a2e');
-    backdropGrad.addColorStop(0.3, '#16213e');
-    backdropGrad.addColorStop(0.7, '#0f3460');
-    backdropGrad.addColorStop(1,   '#1a3050');
-    ctx.fillStyle = backdropGrad;
-    ctx.fillRect(0, standTopY, W, standH);
+    const cellW = 48;
 
-    // ── 2. Tier steps (concrete edges) ──────────────
-    for (let tier = 0; tier < numTiers; tier++) {
-      const ty = standTopY + tierH * (tier + 1);
-      // Concrete step shadow
-      const stepGrad = ctx.createLinearGradient(0, ty - 4, 0, ty + 6);
-      stepGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
-      stepGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    for (let row = 0; row < numRows; row++) {
+      const ry     = topY + row * rowH;
+      // Perspective: rows higher up are narrower/darker (further away)
+      const depth  = row / numRows;         // 0 = top (far), 1 = bottom (near)
+      const crowdH = rowH * (0.52 + depth * 0.22); // crowd zone height within row
+      const stepH  = rowH - crowdH;         // concrete step ledge below crowd
+
+      // Concrete step ledge
+      const stepGrad = ctx.createLinearGradient(0, ry + crowdH, 0, ry + rowH);
+      stepGrad.addColorStop(0, `rgba(18,22,40,0.95)`);
+      stepGrad.addColorStop(1, `rgba(10,14,28,0.95)`);
       ctx.fillStyle = stepGrad;
-      ctx.fillRect(0, ty - 4, W, 10);
+      ctx.fillRect(0, ry + crowdH, W, stepH + 1);
 
-      // Concrete edge highlight
-      ctx.strokeStyle = 'rgba(180,180,220,0.18)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, ty);
-      ctx.lineTo(W, ty);
-      ctx.stroke();
+      // Crowd color wash — cells of impressionistic colour
+      const cols = this._crowdMap[row];
+      for (let col = 0; col < cols.length; col++) {
+        const c   = cols[col];
+        const cx  = col * cellW;
+        // Slight vertical shimmer — simulates crowd movement
+        const shimmer = Math.sin(t * c.speed + c.phase) * 1.2;
+        // Darken top rows for depth/perspective
+        const litAdj  = c.lit * (0.55 + depth * 0.55);
+        ctx.fillStyle = `hsl(${c.hue},${c.sat}%,${litAdj}%)`;
+        ctx.fillRect(cx, ry + shimmer, cellW, crowdH - shimmer);
+      }
+
+      // Row separator: thin concrete line
+      ctx.fillStyle = 'rgba(8,10,22,0.85)';
+      ctx.fillRect(0, ry + crowdH - 1, W, 2);
+
+      // Top highlight on each step ledge (catches stadium light)
+      ctx.fillStyle = `rgba(80,100,160,${0.06 + depth * 0.06})`;
+      ctx.fillRect(0, ry + crowdH, W, 2);
     }
 
-    // ── 3. Vertical section dividers ────────────────
-    for (let sx = -scroll; sx < W + sectionW; sx += sectionW) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(sx, standTopY);
-      ctx.lineTo(sx, standBaseY);
-      ctx.stroke();
-    }
-
-    // ── 4. Draw fans in seats ───────────────────────
-    const totalSections = Math.ceil(W / sectionW) + 3;
-    const firstSec = Math.floor(scroll / sectionW);
-
-    for (let si = 0; si < totalSections; si++) {
-      const secIdx   = ((firstSec + si) % this._standSections.length + this._standSections.length) % this._standSections.length;
-      const sec      = this._standSections[secIdx];
-      const secLeft  = si * sectionW - (scroll % sectionW);
-
-      sec.fans.forEach(fan => {
-        const tierTop  = standTopY + tierH * fan.tier;
-        const tierMid  = tierTop + tierH * 0.38;
-        const fx       = secLeft + fan.col * 14 + 7;
-        const headR    = Math.max(2, tierH * 0.16);
-        const bob      = fan.waving ? Math.sin(t * 2.2 + fan.bobOffset) * headR * 0.9 : Math.sin(t * 0.8 + fan.bobOffset) * headR * 0.3;
-
-        // Seat (coloured plastic bucket seat)
-        const seatH = tierH * 0.35;
-        ctx.fillStyle = `hsl(${fan.hue},${fan.saturation}%,25%)`;
-        ctx.beginPath();
-        ctx.roundRect(fx - headR * 0.9, tierMid + headR * 1.4, headR * 1.8, seatH, 2);
-        ctx.fill();
-
-        // Body
-        ctx.fillStyle = `hsl(${fan.hue},${fan.saturation}%,${fan.lightness - 12}%)`;
-        ctx.beginPath();
-        ctx.ellipse(fx, tierMid + headR * 1.1, headR * 0.85, headR * 1.1, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Head
-        const skinTones = ['#f5c5a0','#e8a870','#c87840','#8b5e3c','#5c3520'];
-        ctx.fillStyle = skinTones[Math.abs(fan.col * 7 + fan.tier * 3) % skinTones.length];
-        ctx.beginPath();
-        ctx.arc(fx, tierMid + bob, headR, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Waving arm
-        if (fan.waving) {
-          const armAngle = -1.1 + Math.sin(t * 2.8 + fan.armPhase) * 0.7;
-          ctx.strokeStyle = `hsl(${fan.hue},${fan.saturation}%,${fan.lightness}%)`;
-          ctx.lineWidth = Math.max(1, headR * 0.55);
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(fx + headR * 0.7, tierMid + headR * 0.9 + bob);
-          ctx.lineTo(
-            fx + headR * 0.7 + Math.cos(armAngle) * headR * 2.2,
-            tierMid + headR * 0.9 + bob + Math.sin(armAngle) * headR * 2.2
-          );
-          ctx.stroke();
-        }
-
-        // Flag
-        if (fan.hasFlag) {
-          const flagX = fx;
-          const flagY = tierMid - headR * 1.2 + bob;
-          // Pole
-          ctx.strokeStyle = 'rgba(200,200,200,0.8)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(flagX, flagY);
-          ctx.lineTo(flagX, flagY - headR * 4);
-          ctx.stroke();
-          // Flag cloth
-          const wave = Math.sin(t * 3.5 + fan.bobOffset) * headR * 0.8;
-          ctx.fillStyle = `hsl(${fan.flagHue},80%,55%)`;
-          ctx.beginPath();
-          ctx.moveTo(flagX, flagY - headR * 4);
-          ctx.quadraticCurveTo(flagX + headR * 2 + wave, flagY - headR * 3.2, flagX + headR * 2.2 + wave, flagY - headR * 2.4);
-          ctx.lineTo(flagX, flagY - headR * 2.4);
-          ctx.closePath();
-          ctx.fill();
-        }
-      });
-    }
-
-    // ── 5. Horizontal banner strips between tiers ───
-    const bannerColors = ['#e74c3c','#f39c12','#2ecc71','#3498db','#9b59b6','#1abc9c'];
-    for (let tier = 1; tier < numTiers; tier += 2) {
-      const by = standTopY + tierH * tier - 3;
-      ctx.fillStyle = bannerColors[tier % bannerColors.length];
-      ctx.globalAlpha = 0.22;
-      ctx.fillRect(0, by, W, 6);
+    // ── 3. Large tifo / banner rectangles ────────────
+    this._tifos.forEach(tf => {
+      const tx = tf.xFrac * W;
+      const ty = topY + tf.row * rowH + rowH * 0.08;
+      const tw = tf.wFrac * W;
+      const th = rowH * 0.75;
+      // Gentle wave distortion on banner — just alpha pulse
+      const pulse = 0.75 + Math.sin(t * 0.8 + tf.phase) * 0.12;
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = tf.color;
+      ctx.fillRect(tx, ty, tw, th);
+      // White stripe through middle
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(tx + 4, ty + th * 0.35, tw - 8, th * 0.28);
       ctx.globalAlpha = 1;
-    }
-
-    // ── 6. Floodlight pylons ─────────────────────────
-    this._pylons.forEach(p => {
-      const px = p.worldX - this.cameraX * 0.08;
-      if (px < -60 || px > W + 60) return;
-      const pBase = standBaseY;
-      const pTop  = standTopY - H * 0.06;
-      const pW    = 8;
-
-      // Pylon shaft
-      const pylGrad = ctx.createLinearGradient(px - pW / 2, 0, px + pW / 2, 0);
-      pylGrad.addColorStop(0, '#555');
-      pylGrad.addColorStop(0.5, '#aaa');
-      pylGrad.addColorStop(1, '#555');
-      ctx.fillStyle = pylGrad;
-      ctx.fillRect(px - pW / 2, pTop, pW, pBase - pTop);
-
-      // Cross arm
-      ctx.fillStyle = '#888';
-      ctx.fillRect(px - 30, pTop + 8, 60, 5);
-
-      // Lamp fixtures
-      [-24, -10, 6, 20].forEach(lx => {
-        const lg = ctx.createRadialGradient(px + lx, pTop + 10, 0, px + lx, pTop + 10, 14);
-        lg.addColorStop(0,   'rgba(255,255,180,0.95)');
-        lg.addColorStop(0.4, 'rgba(255,240,120,0.5)');
-        lg.addColorStop(1,   'rgba(255,220,80,0)');
-        ctx.fillStyle = lg;
-        ctx.beginPath();
-        ctx.arc(px + lx, pTop + 10, 14, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffcc';
-        ctx.beginPath();
-        ctx.ellipse(px + lx, pTop + 10, 5, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // Cone of light downward
-      const coneGrad = ctx.createLinearGradient(px, pTop + 14, px, standBaseY);
-      coneGrad.addColorStop(0, 'rgba(255,255,180,0.06)');
-      coneGrad.addColorStop(1, 'rgba(255,255,180,0)');
-      ctx.fillStyle = coneGrad;
-      ctx.beginPath();
-      ctx.moveTo(px - 28, pTop + 14);
-      ctx.lineTo(px + 28, pTop + 14);
-      ctx.lineTo(px + 80, standBaseY);
-      ctx.lineTo(px - 80, standBaseY);
-      ctx.closePath();
-      ctx.fill();
     });
 
-    // ── 7. Overlay gradient to blend stands into horizon ──
-    const blendGrad = ctx.createLinearGradient(0, standBaseY - H * 0.08, 0, standBaseY);
-    blendGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    blendGrad.addColorStop(1, 'rgba(20,10,5,0.55)');
-    ctx.fillStyle = blendGrad;
-    ctx.fillRect(0, standBaseY - H * 0.08, W, H * 0.08);
+    // ── 4. Vertical aisle shadows (break repetition) ──
+    const aislePositions = [0.18, 0.36, 0.54, 0.72, 0.88];
+    aislePositions.forEach(xf => {
+      const ax = xf * W;
+      const ag = ctx.createLinearGradient(ax - 8, 0, ax + 8, 0);
+      ag.addColorStop(0,   'rgba(0,0,0,0)');
+      ag.addColorStop(0.5, 'rgba(0,0,0,0.22)');
+      ag.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = ag;
+      ctx.fillRect(ax - 8, topY, 16, standH);
+    });
 
-    // ── 8. Track-side barrier / advertising hoardings ──
-    const barrierY = standBaseY;
-    const barrierH = H * 0.025;
-    const adColors = ['#e74c3c','#f39c12','#3498db','#27ae60','#8e44ad','#e67e22'];
-    const adW = 90;
-    const adScroll = (this.cameraX * 0.95) % adW;
-    for (let ax = -adScroll; ax < W + adW; ax += adW) {
-      const ci = Math.floor((ax + adScroll) / adW) % adColors.length;
-      ctx.fillStyle = adColors[((ci % adColors.length) + adColors.length) % adColors.length];
-      ctx.fillRect(ax, barrierY, adW - 2, barrierH);
-      // White text placeholder stripe
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(ax + 8, barrierY + barrierH * 0.3, adW - 18, barrierH * 0.4);
+    // ── 5. Bottom fade into dunes ─────────────────────
+    const fade = ctx.createLinearGradient(0, baseY - standH * 0.14, 0, baseY);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(1, 'rgba(5,5,15,0.70)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, baseY - standH * 0.14, W, standH * 0.14);
+
+    // ── 6. Advertising hoarding at base (scrolls with track) ──
+    const boardH  = H * 0.022;
+    const boardY  = baseY - boardH;
+    const boardW  = 110;
+    const adScroll = ((this.cameraX * 0.9) % boardW + boardW) % boardW;
+    const adPalette = [
+      { bg: '#c0392b', fg: '#ffffff' },
+      { bg: '#2471a3', fg: '#ffffff' },
+      { bg: '#f39c12', fg: '#1a1a1a' },
+      { bg: '#1e8449', fg: '#ffffff' },
+      { bg: '#6c3483', fg: '#ffffff' },
+    ];
+    for (let ax = -adScroll; ax < W + boardW; ax += boardW) {
+      const idx = Math.floor(((ax + adScroll) / boardW + 100)) % adPalette.length;
+      const ad  = adPalette[idx];
+      ctx.fillStyle = ad.bg;
+      ctx.fillRect(ax, boardY, boardW - 2, boardH);
+      // Simple stripe to suggest text/logo
+      ctx.fillStyle = ad.fg;
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(ax + 10, boardY + boardH * 0.28, boardW - 22, boardH * 0.44);
+      ctx.globalAlpha = 1;
     }
-    // Barrier top edge
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, barrierY);
-    ctx.lineTo(W, barrierY);
-    ctx.stroke();
+    // Board top edge
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(0, boardY, W, 1.5);
   }
 
   _drawVignette(W, H) {
