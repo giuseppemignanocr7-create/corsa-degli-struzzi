@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦤 Corsa degli Struzzi</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════
+       CANVAS (always behind everything)
+  ════════════════════════════════════════ -->
+  <canvas id="raceCanvas"></canvas>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 1 — SELECTION
+  ════════════════════════════════════════ -->
+  <div class="screen" id="screen-select">
+    <h1>CORSA DEGLI STRUZZI</h1>
+    <p class="subtitle">SCEGLI IL TUO CAMPIONE</p>
+    <div class="ostrich-grid" id="ostrich-grid">
+      <!-- Cards injected by ui.js -->
+    </div>
+    <button class="start-btn" id="start-btn">🏁 PARTENZA!</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 2 — COUNTDOWN (overlay)
+  ════════════════════════════════════════ -->
+  <div class="screen hidden" id="screen-countdown">
+    <div id="countdown-number">3</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3 — RACE HUD (transparent overlay)
+  ════════════════════════════════════════ -->
+  <div class="screen hidden" id="screen-hud">
+
+    <!-- Timer centrato in alto -->
+    <div id="hud-timer">45.0s</div>
+
+    <!-- Pulsante PAUSA -->
+    <button id="hud-pause-btn" title="Pausa (ESC)">⏸</button>
+
+    <!-- Posizione giocatore in alto a sinistra -->
+    <div id="hud-player-pos">
+      <div class="player-pos-label">IL TUO STRUZZO</div>
+      <div class="pos-big"><span id="hud-player-pos-num">—</span><sup id="hud-player-suffix"></sup></div>
+      <div class="player-pos-label">POSIZIONE</div>
+    </div>
+
+    <!-- Classifica live in alto a destra -->
+    <div id="hud-standings">
+      <h3>⚡ CLASSIFICA</h3>
+      <div id="standings-body"></div>
+    </div>
+
+    <!-- Barra progresso in basso -->
+    <div id="hud-progress-wrap">
+      <h4>PROGRESSO GARA</h4>
+      <div id="hud-progress-track">
+        <span id="finish-flag-icon">🏁</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PAUSE MENU
+  ════════════════════════════════════════ -->
+  <div class="screen hidden" id="screen-pause">
+    <div id="pause-panel">
+      <h2>⏸ PAUSA</h2>
+      <button class="pause-menu-btn" id="pause-resume-btn">▶ RIPRENDI</button>
+      <button class="pause-menu-btn secondary" id="pause-restart-btn">🔄 RICOMINCIA</button>
+      <button class="pause-menu-btn secondary" id="pause-quit-btn">🚪 ESCI AL MENU</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PHOTO FINISH BANNER (floating)
+  ════════════════════════════════════════ -->
+  <div id="photo-finish-banner">📸 PHOTO FINISH!</div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 4 — RESULTS
+  ════════════════════════════════════════ -->
+  <div class="screen hidden" id="screen-results">
+    <h1 id="results-title">🏆 STRUZZO #1 VINCE!</h1>
+    <p id="results-subtitle" class="win"></p>
+
+    <!-- Podio -->
+    <div class="podium" id="podium"></div>
+
+    <!-- Classifica completa -->
+    <table id="standings-table"></table>
+
+    <button class="restart-btn" id="restart-btn">🔄 GIOCA ANCORA</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCRIPTS (order matters)
+  ════════════════════════════════════════ -->
+  <script src="js/config.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/ostrich.js"></script>
+  <script src="js/race.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/commentary.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
