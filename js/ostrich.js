@@ -3,7 +3,7 @@
 // =============================================
 
 class Ostrich {
-  constructor(data, laneY) {
+  constructor(data, laneY, laneStep) {
     this.id          = data.id;
     this.name        = data.name;
     this.color       = data.color;
@@ -13,7 +13,9 @@ class Ostrich {
     this.luck        = data.luck;
 
     this.worldX      = 0;           // position in world units [0 - TRACK_LENGTH]
-    this.laneY       = laneY;       // fixed Y on canvas
+    this.laneY       = laneY;       // foot contact Y on canvas
+    // Scale so ostrich fills its height slot. Draw space: feet y=0, head crest y≈-155
+    this.drawScale   = laneStep ? (laneStep / 155) : 1.0;
     this.progress    = 0;           // 0..1, derived from worldX / TRACK_LENGTH
     this.finished    = false;
     this.finishTime  = Infinity;
@@ -131,8 +133,7 @@ class Ostrich {
     if (screenX < -300 || screenX > ctx.canvas.width + 300) return;
 
     const groundY = this.laneY;
-    // Scale relative to canvas height for true responsive sizing
-    const scale = canvasHeight * 0.00155;
+    const scale = this.drawScale;
 
     // ── Burst speed-lines behind ostrich ──
     if (this.isBursting) {

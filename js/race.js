@@ -39,16 +39,24 @@ class RaceEngine {
     this.finished   = false;
     this._dustTimer = 0;
 
-    const laneCount  = CONFIG.NUM_OSTRICHES;
-    const groundTop  = this.canvas.height * 0.63; // where ground starts
-    const groundBot  = this.canvas.height * 0.93; // bottom margin
-    const usableH    = groundBot - groundTop;
-    const laneStep   = usableH / laneCount;
+    const laneCount = CONFIG.NUM_OSTRICHES;
+    const H = this.canvas.height;
+    // Perspective layout: horizon at 63% H, vanishing point pulls lanes together.
+    // Front lane (idx=5) sits near bottom, back lane (idx=0) near horizon.
+    // laneY is the foot-contact point; scale derived from distance from horizon.
+    const horizonY  = H * 0.63;
+    const bottomY   = H * 0.96;
+    const usableH   = bottomY - horizonY;
 
     OSTRICH_DATA.forEach((data, idx) => {
-      // laneY = foot contact point, centered in each lane slot
-      const laneY = groundTop + laneStep * idx + laneStep * 0.55;
-      this.ostriches.push(new Ostrich(data, laneY));
+      // t=0 → farthest (top), t=1 → nearest (bottom)
+      // Use quadratic spacing so front lanes are spacious
+      const t = (idx + 1) / laneCount;
+      const tSq = Math.pow(t, 1.6);  // perspective squish
+      const laneY = horizonY + usableH * tSq;
+      // Scale: front ostrich (t=1) gets ~H*0.30 tall, back (t≈0.17) gets ~H*0.07
+      const ostrichHeight = H * (0.07 + tSq * 0.23);
+      this.ostriches.push(new Ostrich(data, laneY, ostrichHeight));
     });
   }
 
