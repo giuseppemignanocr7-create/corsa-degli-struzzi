@@ -175,7 +175,6 @@ class Ostrich {
     this._drawLegs(ctx);
     this._drawBody(ctx, isPlayer);
     this._drawNeckHead(ctx);
-    this._drawJockey(ctx);
     this._drawBadge(ctx, isPlayer);
 
     ctx.restore();

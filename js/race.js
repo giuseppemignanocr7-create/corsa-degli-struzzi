@@ -231,223 +231,173 @@ class RaceEngine {
   _drawSky(W, H) {
     const ctx  = this.ctx;
     const skyH = H * 0.63;
-    const t    = this.elapsed / 1000;
 
-    // ── Bright day sky: deep blue top → golden horizon (matching reference photo) ──
+    // ── Photorealistic sky: 8-stop gradient matching golden hour desert photo ──
+    // Top = deep cobalt, mid = saturated sky blue, bottom = warm gold/amber band
     const grad = ctx.createLinearGradient(0, 0, 0, skyH);
-    grad.addColorStop(0,    '#1a3a6e');  // deep blue zenith
-    grad.addColorStop(0.30, '#2e6bbf');  // mid blue
-    grad.addColorStop(0.58, '#5ea8e8');  // bright sky blue
-    grad.addColorStop(0.78, '#d4a050');  // golden horizon
-    grad.addColorStop(0.90, '#e88820');  // orange near ground
-    grad.addColorStop(1,    '#f5a030');  // warm horizon glow
+    grad.addColorStop(0.00, '#0d2b5e');  // deep cobalt zenith
+    grad.addColorStop(0.12, '#1a4a8a');  // royal blue
+    grad.addColorStop(0.28, '#2468b8');  // medium sky blue
+    grad.addColorStop(0.46, '#4a96d8');  // light sky blue
+    grad.addColorStop(0.62, '#78b8e8');  // pale blue near horizon
+    grad.addColorStop(0.74, '#d4903a');  // golden band
+    grad.addColorStop(0.87, '#e8720a');  // orange
+    grad.addColorStop(1.00, '#f0900a');  // amber at ground
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, skyH);
 
-    // ── Sun: lower right, bright golden (like reference) ──
-    const sunScrollFrac = this.cameraX * 0.018;
-    const sunX = ((W * 0.78 - sunScrollFrac) % W + W) % W;
-    const sunY = skyH * 0.82;
-    const sunR = H * 0.055;
+    // ── Sun: right side, large, white-gold ──
+    const sunX = W * 0.82 - (this.cameraX * 0.015) % (W * 0.5);
+    const sunY = skyH * 0.80;
+    const sunR = H * 0.052;
 
-    // Far corona
-    const cOuter = ctx.createRadialGradient(sunX, sunY, sunR*0.5, sunX, sunY, sunR*5.5);
-    cOuter.addColorStop(0,   'rgba(255,230,100,0.35)');
-    cOuter.addColorStop(0.3, 'rgba(255,180,50,0.12)');
-    cOuter.addColorStop(1,   'rgba(255,140,0,0)');
-    ctx.fillStyle = cOuter;
-    ctx.beginPath(); ctx.arc(sunX, sunY, sunR*5.5, 0, Math.PI*2); ctx.fill();
-
-    // Sun disc
-    const sunDisc = ctx.createRadialGradient(sunX-sunR*0.3, sunY-sunR*0.3, 0, sunX, sunY, sunR);
-    sunDisc.addColorStop(0,   '#ffffff');
-    sunDisc.addColorStop(0.3, '#fff5c0');
-    sunDisc.addColorStop(0.7, '#ffd040');
-    sunDisc.addColorStop(1,   '#ffa010');
-    ctx.fillStyle = sunDisc;
-    ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI*2); ctx.fill();
-
-    // ── Light wispy clouds (high altitude, white-blue) ──
-    if (!this._clouds) {
-      this._clouds = [];
-      for (let i = 0; i < 8; i++) {
-        const pc = 3 + Math.floor(Math.random() * 4);
-        const puffs = [];
-        for (let p = 0; p < pc; p++)
-          puffs.push({ ox: (Math.random()-0.4)*200, oy: (Math.random()-0.5)*18, r: H*0.018+Math.random()*H*0.032 });
-        this._clouds.push({
-          worldX: Math.random() * CONFIG.TRACK_LENGTH * 1.6,
-          yFrac:  0.04 + Math.random() * 0.30,
-          puffs,
-          alpha:  0.25 + Math.random() * 0.22,
-          speed:  0.010 + Math.random() * 0.012,
-        });
-      }
+    // Sun glow layers (no hard edges)
+    for (let layer = 4; layer >= 0; layer--) {
+      const r = sunR * (1 + layer * 1.2);
+      const a = [0.38, 0.18, 0.10, 0.05, 0.02][layer];
+      const sg = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, r);
+      sg.addColorStop(0,   `rgba(255,248,220,${a})`);
+      sg.addColorStop(0.6, `rgba(255,210,80,${a*0.4})`);
+      sg.addColorStop(1,   'rgba(255,160,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sunX, sunY, r, 0, Math.PI*2); ctx.fill();
     }
-    this._clouds.forEach(c => {
-      const cx = ((c.worldX + t * c.speed * 60 - this.cameraX * 0.022) % (W*2.2) + W*2.2) % (W*2.2);
-      const cy = skyH * c.yFrac;
-      c.puffs.forEach(p => {
-        const pg = ctx.createRadialGradient(cx+p.ox, cy+p.oy-p.r*0.2, 0, cx+p.ox, cy+p.oy, p.r);
-        pg.addColorStop(0,    `rgba(255,252,245,${c.alpha})`);
-        pg.addColorStop(0.55, `rgba(220,235,255,${c.alpha*0.45})`);
-        pg.addColorStop(1,    'rgba(180,210,255,0)');
-        ctx.fillStyle = pg;
-        ctx.beginPath(); ctx.arc(cx+p.ox, cy+p.oy, p.r, 0, Math.PI*2); ctx.fill();
-      });
-    });
+    // Sun disc
+    const sd = ctx.createRadialGradient(sunX-sunR*0.2, sunY-sunR*0.2, 0, sunX, sunY, sunR);
+    sd.addColorStop(0,   '#ffffff');
+    sd.addColorStop(0.4, '#fff8d0');
+    sd.addColorStop(0.85,'#ffd050');
+    sd.addColorStop(1,   '#ffa010');
+    ctx.fillStyle = sd; ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI*2); ctx.fill();
 
-    // ── Warm horizon glow ──
-    const haze = ctx.createLinearGradient(0, skyH*0.72, 0, skyH);
-    haze.addColorStop(0,   'rgba(240,160,50,0)');
-    haze.addColorStop(0.6, 'rgba(248,180,60,0.22)');
-    haze.addColorStop(1,   'rgba(255,200,80,0.40)');
-    ctx.fillStyle = haze;
-    ctx.fillRect(0, skyH*0.72, W, skyH*0.28);
+    // ── Atmospheric scattering: thin warm band at exact horizon ──
+    const scatter = ctx.createLinearGradient(0, skyH*0.60, 0, skyH);
+    scatter.addColorStop(0,   'rgba(255,180,60,0)');
+    scatter.addColorStop(0.45,'rgba(255,170,50,0.15)');
+    scatter.addColorStop(0.78,'rgba(255,150,30,0.28)');
+    scatter.addColorStop(1,   'rgba(255,130,10,0.18)');
+    ctx.fillStyle = scatter;
+    ctx.fillRect(0, skyH*0.60, W, skyH*0.40);
   }
 
-  _drawDistantDunes(W, H) {
-    // Replaced by _drawMountains — kept as no-op for render order
-  }
+  _drawDistantDunes(W, H) {}
+  _drawMidDunes(W, H) {}
 
-  _drawMidDunes(W, H) {
-    // Replaced by _drawMountains — kept as no-op for render order
+  // ── Seeded pseudo-random (deterministic, no Math.random in render loop) ──
+  _rng(seed) {
+    let s = seed ^ 0xdeadbeef;
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    return ((s ^ (s >>> 16)) >>> 0) / 0xffffffff;
   }
 
   _drawMountains(W, H) {
-    const ctx = this.ctx;
+    const ctx   = this.ctx;
     const baseY = H * 0.63;
 
-    // ── 3 layers of rocky red mountains (like Arizona/Utah in reference photo) ──
-    // Layer 1: farthest — bluish-purple haze, small
+    // ── 3 parallax mountain layers, each rendered as LOW-POLY FACETED ROCK ──
+    // Each layer: generate a ridgeline of vertices, then triangulate into
+    // lit/shadow facets — looks like real rock instead of cartoon blob.
     const layers = [
-      {
-        parallax: CONFIG.PARALLAX[0],
-        // colors: atmospheric blue-purple far mountains
-        shadow: '#4a3050', main: '#6b4060', highlight: 'rgba(200,160,220,0.18)',
-        peaks: [0.08,0.24,0.14,0.30,0.18,0.26,0.10,0.22,0.16,0.28],
-        peakH: 0.22, base: 0.63,
-      },
-      {
-        parallax: CONFIG.PARALLAX[1],
-        // colors: dark reddish-brown mid mountains
-        shadow: '#5a2818', main: '#7a3820', highlight: 'rgba(255,180,80,0.12)',
-        peaks: [0.05,0.28,0.16,0.38,0.22,0.34,0.12,0.30,0.20,0.26],
-        peakH: 0.30, base: 0.63,
-      },
-      {
-        parallax: CONFIG.PARALLAX[1]*1.4,
-        // colors: warm terracotta-red front mountains (like reference)
-        shadow: '#6e2810', main: '#a03820', highlight: 'rgba(255,200,100,0.20)',
-        peaks: [0.10,0.34,0.18,0.44,0.26,0.40,0.08,0.36,0.22,0.32],
-        peakH: 0.38, base: 0.63,
-      },
+      // Far layer: hazy blue-purple (atmospheric perspective)
+      { parallax: CONFIG.PARALLAX[0]*0.5, seed: 7,
+        baseColor: [88, 70, 110], shadowMul: 0.55, litMul: 1.25,
+        heightFrac: 0.28, vertCount: 22, base: 0.63, haze: [80,110,180,0.35] },
+      // Mid layer: dark brownish red
+      { parallax: CONFIG.PARALLAX[0]*0.85, seed: 13,
+        baseColor: [110, 48, 28], shadowMul: 0.50, litMul: 1.30,
+        heightFrac: 0.38, vertCount: 20, base: 0.63, haze: [80,100,160,0.18] },
+      // Front layer: rich terracotta-red (closest, no haze)
+      { parallax: CONFIG.PARALLAX[1]*0.9, seed: 31,
+        baseColor: [148, 54, 22], shadowMul: 0.48, litMul: 1.40,
+        heightFrac: 0.48, vertCount: 18, base: 0.63, haze: null },
     ];
 
-    layers.forEach((L, li) => {
+    // Sun direction (from lower-right): used for facet lighting
+    const sunDirX = 0.7, sunDirY = -0.7;
+
+    layers.forEach((L) => {
       const scroll = (this.cameraX * L.parallax) % W;
-      const bY = H * L.base;
+      const bY     = H * L.base;
+      const maxH   = H * L.heightFrac;
 
+      // Build ridgeline vertices (deterministic from seed)
+      // We generate enough points for 2x width so tiling is seamless
+      const verts = [];
+      const N = L.vertCount * 2 + 2;
+      for (let i = 0; i <= N; i++) {
+        const t  = i / N;
+        // Mix multiple frequencies for natural ridge
+        const h  = (
+          this._rng(L.seed + i*3)     * 0.55 +
+          this._rng(L.seed + i*3 + 1) * 0.28 +
+          this._rng(L.seed + i*3 + 2) * 0.17
+        );
+        verts.push({ x: t * W * 2, y: bY - h * maxH });
+      }
+      // Add a mid-point noise pass for jaggedness (rocky look)
+      const jagged = [];
+      jagged.push({ x: 0, y: bY });
+      for (let i = 0; i < verts.length - 1; i++) {
+        jagged.push(verts[i]);
+        // Insert extra vertex between each pair for angular rocky edges
+        const mx = (verts[i].x + verts[i+1].x) * 0.5;
+        const myBase = (verts[i].y + verts[i+1].y) * 0.5;
+        const jitter = (this._rng(L.seed + i*7 + 99) - 0.5) * maxH * 0.22;
+        jagged.push({ x: mx, y: myBase + jitter });
+      }
+      jagged.push(verts[verts.length-1]);
+      jagged.push({ x: W * 2, y: bY });
+
+      // Render for -W, 0, +W offsets to fill any scroll gap
       for (let rep = -1; rep <= 1; rep++) {
-        const ox = rep * W - scroll;
+        const ox = rep * W * 2 - (scroll * 2) % (W * 2);
+        if (ox > W + 10 || ox + W * 2 < -10) continue;
 
-        // Shadow pass
-        ctx.fillStyle = L.shadow;
-        ctx.beginPath();
-        ctx.moveTo(ox, bY);
-        // Build mountain silhouette from peaks array
-        const n = L.peaks.length;
-        for (let i = 0; i < n; i++) {
-          const px = ox + (i / (n-1)) * W;
-          const py = H * (L.base - L.peakH * L.peaks[i]);
-          if (i === 0) ctx.lineTo(px, py);
-          else {
-            const ppx = ox + ((i-1)/(n-1)) * W;
-            const ppy = H * (L.base - L.peakH * L.peaks[i-1]);
-            ctx.bezierCurveTo(ppx + (px-ppx)*0.5, ppy, px - (px-ppx)*0.3, py, px, py);
-          }
-        }
-        ctx.lineTo(ox+W, bY);
-        ctx.closePath();
-        ctx.fill();
+        // Draw triangulated facets
+        for (let i = 1; i < jagged.length - 2; i++) {
+          const A = { x: jagged[i].x   + ox, y: jagged[i].y   };
+          const B = { x: jagged[i+1].x + ox, y: jagged[i+1].y };
+          const botL = { x: A.x, y: bY + 2 };
+          const botR = { x: B.x, y: bY + 2 };
 
-        // Main gradient pass
-        const mg = ctx.createLinearGradient(0, H*(L.base - L.peakH*0.44), 0, bY);
-        mg.addColorStop(0,   L.main);
-        mg.addColorStop(0.4, this._shiftColor(L.main, 15, 8, 5));
-        mg.addColorStop(0.8, this._shiftColor(L.main, 25, 15, 8));
-        mg.addColorStop(1,   this._shiftColor(L.main, 10, 5, 0));
-        ctx.fillStyle = mg;
-        ctx.beginPath();
-        ctx.moveTo(ox, bY);
-        const n2 = L.peaks.length;
-        for (let i = 0; i < n2; i++) {
-          const px = ox + (i/(n2-1)) * W;
-          const py = H * (L.base - L.peakH * L.peaks[i]) + 3;
-          if (i === 0) ctx.lineTo(px, py);
-          else {
-            const ppx = ox + ((i-1)/(n2-1)) * W;
-            const ppy = H * (L.base - L.peakH * L.peaks[i-1]) + 3;
-            ctx.bezierCurveTo(ppx+(px-ppx)*0.5, ppy, px-(px-ppx)*0.3, py, px, py);
-          }
-        }
-        ctx.lineTo(ox+W, bY);
-        ctx.closePath();
-        ctx.fill();
+          // Facet normal
+          const dx = B.x - A.x;
+          const dy = B.y - A.y;
+          const len = Math.sqrt(dx*dx + dy*dy) || 1;
+          // Normal pointing outward (upward for mountain)
+          const nx = -dy / len, ny = dx / len;
+          // Dot with sun direction
+          const dot = Math.max(0, Math.min(1, nx*sunDirX + ny*sunDirY));
 
-        // Sunlit face highlights on right sides of peaks (sun is lower right)
-        if (li === 2) {
-          ctx.strokeStyle = 'rgba(255,200,120,0.25)';
-          ctx.lineWidth = 2.5;
-          ctx.lineCap = 'round';
-          for (let i = 1; i < n2-1; i++) {
-            if (L.peaks[i] > L.peaks[i-1]) { // rising peak
-              const px = ox + (i/(n2-1)) * W;
-              const py = H * (L.base - L.peakH * L.peaks[i]);
-              const ppx = ox + ((i-1)/(n2-1)) * W;
-              const ppy = H * (L.base - L.peakH * L.peaks[i-1]);
-              ctx.beginPath();
-              ctx.moveTo(ppx, ppy);
-              ctx.lineTo(px, py);
-              ctx.stroke();
-            }
-          }
-        }
+          // Shade the facet
+          const [br, bg, bb] = L.baseColor;
+          const shade = L.shadowMul + dot * (L.litMul - L.shadowMul);
+          const fr = Math.min(255, br * shade) | 0;
+          const fg = Math.min(255, bg * shade) | 0;
+          const fb = Math.min(255, bb * shade) | 0;
 
-        // Atmospheric haze over far layers
-        if (li < 2) {
-          const haze = ctx.createLinearGradient(0, H*(L.base - L.peakH*0.44), 0, bY);
-          haze.addColorStop(0, `rgba(100,140,200,${0.25 - li*0.08})`);
-          haze.addColorStop(1, 'rgba(100,140,200,0)');
-          ctx.fillStyle = haze;
+          ctx.fillStyle = `rgb(${fr},${fg},${fb})`;
           ctx.beginPath();
-          ctx.moveTo(ox, bY);
-          const n3 = L.peaks.length;
-          for (let i = 0; i < n3; i++) {
-            const px = ox + (i/(n3-1)) * W;
-            const py = H * (L.base - L.peakH * L.peaks[i]);
-            if (i === 0) ctx.lineTo(px, py);
-            else {
-              const ppx = ox + ((i-1)/(n3-1)) * W;
-              const ppy = H * (L.base - L.peakH * L.peaks[i-1]);
-              ctx.bezierCurveTo(ppx+(px-ppx)*0.5, ppy, px-(px-ppx)*0.3, py, px, py);
-            }
-          }
-          ctx.lineTo(ox+W, bY);
+          ctx.moveTo(A.x, A.y);
+          ctx.lineTo(B.x, B.y);
+          ctx.lineTo(botR.x, botR.y);
+          ctx.lineTo(botL.x, botL.y);
           ctx.closePath();
           ctx.fill();
         }
+
+        // Atmospheric haze overlay on far layers
+        if (L.haze) {
+          const [hr, hg, hb, ha] = L.haze;
+          const hzGrad = ctx.createLinearGradient(0, bY - maxH, 0, bY);
+          hzGrad.addColorStop(0,   `rgba(${hr},${hg},${hb},${ha})`);
+          hzGrad.addColorStop(1,   `rgba(${hr},${hg},${hb},0)`);
+          ctx.fillStyle = hzGrad;
+          ctx.fillRect(ox, bY - maxH, W * 2, maxH + 2);
+        }
       }
     });
-  }
-
-  _shiftColor(hex, r, g, b) {
-    // Parse and brighten a hex color
-    const num = parseInt(hex.replace('#',''), 16);
-    const nr = Math.min(255, ((num>>16)&0xff) + r);
-    const ng = Math.min(255, ((num>>8)&0xff)  + g);
-    const nb = Math.min(255, (num&0xff)        + b);
-    return `rgb(${nr},${ng},${nb})`;
   }
 
   _drawGround(W, H) {
@@ -455,40 +405,52 @@ class RaceEngine {
     const groundY = H * 0.63;
     const groundH = H - groundY;
 
-    // ── Dusty ochre ground matching reference photo ──
+    // ── Base: 5-stop photorealistic desert ground gradient ──
     const grad = ctx.createLinearGradient(0, groundY, 0, H);
-    grad.addColorStop(0,    '#c8984a');  // warm ochre at horizon
-    grad.addColorStop(0.18, '#b87c30');  // mid ochre
-    grad.addColorStop(0.55, '#a06820');  // darker mid
-    grad.addColorStop(1,    '#7a4c10');  // dark base
+    grad.addColorStop(0.00, '#d4a055');  // bright lit horizon
+    grad.addColorStop(0.08, '#c08840');  // warm ochre
+    grad.addColorStop(0.28, '#aa7030');  // mid tone
+    grad.addColorStop(0.60, '#8a5420');  // darker
+    grad.addColorStop(1.00, '#6a3c10');  // deep shadow near bottom
     ctx.fillStyle = grad;
     ctx.fillRect(0, groundY, W, groundH);
 
-    // ── Dusty track texture — loose diagonal streaks ──
-    const ripScroll = (this.cameraX * 0.5) % 48;
+    // ── Horizontal ground banding (natural soil layer variation) ──
+    // These thin horizontal strips simulate the layered look of desert soil
+    const bands = [
+      { yFrac: 0.08, color: 'rgba(210,175,90,0.18)',  h: 3 },
+      { yFrac: 0.18, color: 'rgba(160,110,40,0.14)',  h: 2 },
+      { yFrac: 0.32, color: 'rgba(200,155,70,0.12)',  h: 3 },
+      { yFrac: 0.48, color: 'rgba(140, 90,25,0.12)',  h: 2 },
+      { yFrac: 0.65, color: 'rgba(180,130,55,0.10)',  h: 2 },
+    ];
+    bands.forEach(b => {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(0, groundY + groundH * b.yFrac, W, b.h);
+    });
+
+    // ── Perspective track grooves (converge to horizon) ──
+    const trackScroll = (this.cameraX * 0.8) % 80;
     ctx.save();
-    for (let rx = -48; rx < W + 48; rx += 48) {
-      const x = rx - ripScroll;
-      ctx.strokeStyle = `rgba(200,170,100,${0.06 + Math.random()*0.02})`;
-      ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(160,120,55,0.22)';
+    ctx.lineWidth = 1;
+    for (let tx = -80; tx < W + 80; tx += 80) {
+      const x = tx - trackScroll;
+      // Lines converge toward horizon center
       ctx.beginPath();
-      ctx.moveTo(x, groundY);
-      ctx.lineTo(x + 30, H);
+      ctx.moveTo(W/2 + (x - W/2) * 0.05, groundY + 2);  // near-horizon (narrow)
+      ctx.lineTo(x, H);                                    // ground level (full spread)
       ctx.stroke();
     }
     ctx.restore();
 
-    // ── Dust haze at horizon line ──
-    const dustEdge = ctx.createLinearGradient(0, groundY, 0, groundY + H*0.07);
-    dustEdge.addColorStop(0, 'rgba(220,180,100,0.55)');
-    dustEdge.addColorStop(1, 'rgba(200,160,80,0)');
+    // ── Bright dust scatter at horizon ──
+    const dustEdge = ctx.createLinearGradient(0, groundY, 0, groundY + H*0.10);
+    dustEdge.addColorStop(0,   'rgba(230,195,120,0.60)');
+    dustEdge.addColorStop(0.5, 'rgba(210,170,90,0.18)');
+    dustEdge.addColorStop(1,   'rgba(190,145,60,0)');
     ctx.fillStyle = dustEdge;
-    ctx.fillRect(0, groundY, W, H * 0.07);
-
-    // ── Ground top border ──
-    ctx.strokeStyle = 'rgba(100,60,10,0.40)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+    ctx.fillRect(0, groundY, W, H * 0.10);
   }
 
   _drawLanes(W, H) {
@@ -593,29 +555,31 @@ class RaceEngine {
 
   _generateScene() {
     const objects = [];
+    const rng = (s) => this._rng(s);
 
-    // Background layer: tall elements at the ground horizon
-    const bgTypes = ['palm', 'pillar', 'sandwave', 'rock'];
-    for (let i = 0; i < 80; i++) {
+    // ── BACKGROUND: only sparse saguaro cactus silhouettes + distant rock formations ──
+    // No palms, no pillars — pure Arizona desert
+    for (let i = 0; i < 28; i++) {
+      const seed = i * 17;
       objects.push({
-        type: bgTypes[Math.floor(Math.random() * bgTypes.length)],
-        worldX: 200 + Math.random() * (CONFIG.TRACK_LENGTH + 200),
-        yFrac: 0.63,  // sit exactly on ground horizon
-        scale: 0.9 + Math.random() * 0.7,
-        layer: 'bg',
-        parallax: 0.55,
+        type:    rng(seed) > 0.38 ? 'cactus_sil' : 'rock_cluster',
+        worldX:  300 + rng(seed+1) * (CONFIG.TRACK_LENGTH + 400),
+        yFrac:   0.625 + rng(seed+2) * 0.005,
+        scale:   0.5 + rng(seed+3) * 0.8,
+        layer:   'bg',
+        parallax: 0.40 + rng(seed+4) * 0.15,
       });
     }
 
-    // Foreground layer: small ground-level details
-    const fgTypes = ['rock', 'cactus', 'bush', 'bone', 'tumbleweed', 'sandpile', 'skull'];
-    for (let i = 0; i < 200; i++) {
+    // ── FOREGROUND: rocks only (no cartoon skulls/bones) ──
+    for (let i = 0; i < 60; i++) {
+      const seed = 1000 + i * 11;
       objects.push({
-        type: fgTypes[Math.floor(Math.random() * fgTypes.length)],
-        worldX: Math.random() * (CONFIG.TRACK_LENGTH + 600),
-        yFrac: 0.90 + Math.random() * 0.07,  // scattered near bottom of ground
-        scale: 0.4 + Math.random() * 1.0,
-        layer: 'fg',
+        type:    'rock',
+        worldX:  rng(seed) * (CONFIG.TRACK_LENGTH + 600),
+        yFrac:   0.88 + rng(seed+1) * 0.09,
+        scale:   0.3 + rng(seed+2) * 0.9,
+        layer:   'fg',
         parallax: 1.0,
       });
     }
@@ -625,284 +589,67 @@ class RaceEngine {
 
   _drawSceneObjects(W, H) {
     const ctx = this.ctx;
-    // Draw bg layer first, then fg on top
     ['bg', 'fg'].forEach(layer => {
       this.sceneObjects.filter(o => o.layer === layer).forEach(obj => {
         const sx = obj.worldX - this.cameraX * obj.parallax;
-        if (sx < -150 || sx > W + 150) return;
+        if (sx < -200 || sx > W + 200) return;
         const sy = H * obj.yFrac;
-
         ctx.save();
         ctx.translate(sx, sy);
         ctx.scale(obj.scale, obj.scale);
-
-        if      (obj.type === 'rock')       this._drawRock(ctx);
-        else if (obj.type === 'cactus')     this._drawCactus(ctx);
-        else if (obj.type === 'bush')       this._drawBush(ctx);
-        else if (obj.type === 'bone')       this._drawBone(ctx);
-        else if (obj.type === 'palm')       this._drawPalm(ctx);
-        else if (obj.type === 'pillar')     this._drawPillar(ctx);
-        else if (obj.type === 'sandwave')   this._drawSandWave(ctx);
-        else if (obj.type === 'tumbleweed') this._drawTumbleweed(ctx, obj);
-        else if (obj.type === 'sandpile')   this._drawSandPile(ctx);
-        else if (obj.type === 'skull')      this._drawSkull(ctx);
-
+        if      (obj.type === 'rock')         this._drawRock(ctx);
+        else if (obj.type === 'cactus_sil')   this._drawCactusSilhouette(ctx);
+        else if (obj.type === 'rock_cluster') this._drawRockCluster(ctx);
         ctx.restore();
       });
     });
   }
 
   _drawRock(ctx) {
-    // Base rock
-    const rg = ctx.createRadialGradient(-4, -5, 0, 0, 0, 22);
-    rg.addColorStop(0,   '#c8a878');
-    rg.addColorStop(0.6, '#a08060');
-    rg.addColorStop(1,   '#7a5a38');
-    ctx.fillStyle = rg;
+    // Low-poly angular rock — looks realistic because of sharp facets
+    ctx.fillStyle = '#9a7850';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 20, 13, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    // Secondary rock
-    const rg2 = ctx.createRadialGradient(-8, -6, 0, -6, -4, 13);
-    rg2.addColorStop(0,   '#d0b088');
-    rg2.addColorStop(1,   '#907050');
-    ctx.fillStyle = rg2;
+    ctx.moveTo(-18, 0); ctx.lineTo(-10, -14); ctx.lineTo(0, -18);
+    ctx.lineTo(12, -11); ctx.lineTo(20, 0);
+    ctx.closePath(); ctx.fill();
+    // Lit top facet
+    ctx.fillStyle = '#c8a870';
     ctx.beginPath();
-    ctx.ellipse(-6, -5, 11, 8, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    // Highlight
-    ctx.fillStyle = 'rgba(255,240,200,0.2)';
+    ctx.moveTo(-10, -14); ctx.lineTo(0, -18); ctx.lineTo(5, -12); ctx.lineTo(-4, -10);
+    ctx.closePath(); ctx.fill();
+    // Shadow side facet
+    ctx.fillStyle = '#6a4828';
     ctx.beginPath();
-    ctx.ellipse(-7, -8, 5, 3, -0.4, 0, Math.PI * 2);
-    ctx.fill();
-    // Crack
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(2, -6); ctx.lineTo(5, 2);
-    ctx.stroke();
+    ctx.moveTo(12, -11); ctx.lineTo(20, 0); ctx.lineTo(10, 0); ctx.lineTo(8, -8);
+    ctx.closePath(); ctx.fill();
   }
-  _drawCactus(ctx) {
-    const cg = ctx.createLinearGradient(-5, -40, 5, 0);
-    cg.addColorStop(0, '#5a9050');
-    cg.addColorStop(1, '#3a6030');
-    ctx.fillStyle = cg;
-    // Main trunk
-    ctx.beginPath();
-    ctx.roundRect(-5, -44, 10, 44, 4);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(0, -44, 5.5, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
+
+  _drawCactusSilhouette(ctx) {
+    // Dark silhouette saguaro — no cartoon green, just a dark outline shape
+    // Looks distant and realistic
+    ctx.fillStyle = '#2a3820';
+    // Trunk
+    ctx.beginPath(); ctx.rect(-6, -80, 12, 80); ctx.fill();
     // Left arm
     ctx.beginPath();
-    ctx.roundRect(-20, -30, 10, 22, 4);
+    ctx.moveTo(-6, -55); ctx.lineTo(-28, -55); ctx.lineTo(-28, -38); ctx.lineTo(-6, -38);
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-15, -30, 5, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(-20, -30, 14, 8, 3);
-    ctx.fill();
+    ctx.beginPath(); ctx.rect(-34, -62, 12, 24); ctx.fill();
     // Right arm
     ctx.beginPath();
-    ctx.roundRect(10, -20, 10, 16, 4);
+    ctx.moveTo(6, -45); ctx.lineTo(22, -45); ctx.lineTo(22, -30); ctx.lineTo(6, -30);
     ctx.fill();
+    ctx.beginPath(); ctx.rect(16, -52, 12, 22); ctx.fill();
+    // Top cap
     ctx.beginPath();
-    ctx.ellipse(15, -20, 5, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(6, -20, 14, 7, 3);
-    ctx.fill();
-    // Spines
-    ctx.strokeStyle = 'rgba(255,255,200,0.6)';
-    ctx.lineWidth = 0.8;
-    [[-2,-38],[2,-32],[-3,-22],[2,-12],[-2,-4],[-16,-26],[-17,-22],[12,-16],[13,-12]].forEach(([x,y]) => {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + (x < 0 ? -5 : 5), y - 2);
-      ctx.stroke();
-    });
-    // Highlight stripe
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.beginPath();
-    ctx.roundRect(-2, -44, 4, 40, 2);
-    ctx.fill();
-  }
-  _drawBush(ctx) {
-    ctx.fillStyle = '#8a6a30';
-    ctx.beginPath();
-    ctx.arc(0, 0, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(-10, 2, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(10, 2, 9, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  _drawBone(ctx) {
-    ctx.strokeStyle = '#e8e0cc';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-12, 0);
-    ctx.lineTo(12, 0);
-    ctx.stroke();
-    [[-12, 0], [12, 0]].forEach(([x, y]) => {
-      ctx.fillStyle = '#e8e0cc';
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, y + 4, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.ellipse(0, -80, 6, 4, 0, 0, Math.PI*2); ctx.fill();
   }
 
-  _drawPalm(ctx) {
-    // Trunk — tapered, curved, with ring texture
-    const tx = [0, 6, -3, 4];
-    const ty = [0, -30, -60, -92];
-    ctx.strokeStyle = '#7a4e1e';
-    ctx.lineWidth = 14;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(tx[0], ty[0]);
-    ctx.bezierCurveTo(tx[1], ty[1], tx[2], ty[2], tx[3], ty[3]);
-    ctx.stroke();
-    ctx.strokeStyle = '#a06830';
-    ctx.lineWidth = 9;
-    ctx.beginPath();
-    ctx.moveTo(tx[0], ty[0]);
-    ctx.bezierCurveTo(tx[1], ty[1], tx[2], ty[2], tx[3], ty[3]);
-    ctx.stroke();
-    // Trunk rings
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-    ctx.lineWidth = 1.5;
-    for (let r = 0; r < 6; r++) {
-      const ry = -14 - r * 14;
-      ctx.beginPath();
-      ctx.ellipse(2 + r * 0.3, ry, 5, 2, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    // Fronds — 8 leaves, alternating
-    const fronds = [
-      { ax: -20, ay: -20 }, { ax: -35, ay: -10 }, { ax: -28, ay:  4 },
-      { ax:  -8, ay:  8  }, { ax:  14, ay:  4 },  { ax:  30, ay: -6 },
-      { ax:  26, ay: -18 },{ ax:  10, ay: -26 },
-    ];
-    fronds.forEach(({ ax, ay }, i) => {
-      const g = ctx.createLinearGradient(tx[3], ty[3], tx[3] + ax, ty[3] + ay);
-      g.addColorStop(0, '#2a6020');
-      g.addColorStop(1, '#4a9035');
-      ctx.strokeStyle = i % 2 === 0 ? '#3a8028' : '#4a9035';
-      ctx.lineWidth = 4 - (i % 2);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(tx[3], ty[3]);
-      ctx.quadraticCurveTo(
-        tx[3] + ax * 0.55 + (i % 2 ? 5 : -5), ty[3] + ay * 0.4,
-        tx[3] + ax, ty[3] + ay
-      );
-      ctx.stroke();
-    });
-    // Coconuts cluster
-    [[4,-90],[9,-86],[0,-86],[-4,-83]].forEach(([cx,cy]) => {
-      const cg = ctx.createRadialGradient(cx-1, cy-1, 0, cx, cy, 5);
-      cg.addColorStop(0, '#a06830');
-      cg.addColorStop(1, '#604010');
-      ctx.fillStyle = cg;
-      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
-    });
-  }
-
-  _drawPillar(ctx) {
-    // Ancient ruin pillar
-    ctx.fillStyle = '#c8b890';
-    ctx.fillRect(-12, -70, 24, 70);
-    // Cap
-    ctx.fillStyle = '#d8c8a0';
-    ctx.fillRect(-16, -80, 32, 12);
-    // Base
-    ctx.fillStyle = '#b8a878';
-    ctx.fillRect(-14, -6, 28, 6);
-    // Cracks
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(-4, -60); ctx.lineTo(-2, -30); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5, -50); ctx.lineTo(7, -20); ctx.stroke();
-    // Broken top edge
-    ctx.fillStyle = '#c8b890';
-    ctx.beginPath();
-    ctx.moveTo(-16, -80); ctx.lineTo(-8, -88); ctx.lineTo(0, -82);
-    ctx.lineTo(10, -90); ctx.lineTo(16, -80); ctx.closePath();
-    ctx.fill();
-  }
-
-  _drawSandWave(ctx) {
-    // Wind-carved sand ridge
-    ctx.fillStyle = 'rgba(220, 170, 80, 0.5)';
-    ctx.beginPath();
-    ctx.moveTo(-60, 0);
-    ctx.bezierCurveTo(-30, -18, 0, -22, 30, -14);
-    ctx.bezierCurveTo(50, -8, 60, 0, 60, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(240, 200, 110, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(-50, 0);
-    ctx.bezierCurveTo(-20, -10, 10, -13, 40, -6);
-    ctx.bezierCurveTo(50, -3, 55, 0, 55, 0);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  _drawTumbleweed(ctx, obj) {
-    const t = (this.elapsed / 600 + (obj.worldX * 0.01));
-    ctx.save();
-    ctx.rotate(t);
-    ctx.strokeStyle = '#8a6a30';
-    ctx.lineWidth = 2;
-    for (let a = 0; a < Math.PI; a += Math.PI / 4) {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 14, 6, a, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.arc(0, 0, 14, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  _drawSandPile(ctx) {
-    ctx.fillStyle = 'rgba(210, 160, 70, 0.7)';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 22, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(235, 195, 100, 0.5)';
-    ctx.beginPath();
-    ctx.ellipse(-5, -4, 14, 5, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawSkull(ctx) {
-    ctx.fillStyle = '#e0d8c0';
-    ctx.beginPath();
-    ctx.ellipse(0, -8, 10, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Eye sockets
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.beginPath(); ctx.ellipse(-4, -10, 3, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(4, -10, 3, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    // Jaw
-    ctx.fillStyle = '#d8d0b8';
-    ctx.fillRect(-8, -2, 16, 6);
-    // Teeth
-    ctx.fillStyle = 'white';
-    [-5, -1, 3].forEach(x => {
-      ctx.fillRect(x, -1, 3, 5);
-    });
+  _drawRockCluster(ctx) {
+    // Group of 3 angular rocks at different sizes
+    ctx.save(); ctx.translate(-18, 0); ctx.scale(0.7, 0.7); this._drawRock(ctx); ctx.restore();
+    ctx.save(); ctx.translate(5, 0);   ctx.scale(1.0, 1.0); this._drawRock(ctx); ctx.restore();
+    ctx.save(); ctx.translate(26, 4);  ctx.scale(0.5, 0.5); this._drawRock(ctx); ctx.restore();
   }
 
   _generateCrowd() {
