@@ -182,158 +182,154 @@ class Ostrich {
   }
 
   _drawLegs(ctx) {
-    // Coordinate space: feet at y=0, hips at y=-60
-    // Two legs interleaved in phase
+    // Real ostrich leg anatomy: short hidden thigh, very long visible tarsus
+    // Ostrich legs are pinkish-grey, not tan
     const pairs = [
-      { hipX: 10, phase: 0 },
-      { hipX: 28, phase: Math.PI },
+      { hipX: 8,  phase: 0 },
+      { hipX: 26, phase: Math.PI },
     ];
 
     pairs.forEach(leg => {
-      const s  = Math.sin(this.stridePhase + leg.phase);
-      const c  = Math.cos(this.stridePhase + leg.phase);
+      const s = Math.sin(this.stridePhase + leg.phase);
+      const hipY = -62;
 
-      // Hip is at bottom of body
-      const hipY  = -60;
+      // Knee position
+      const kneeX = leg.hipX + s * 20;
+      const kneeY = hipY + 28 + Math.abs(s) * 5;
 
-      // Knee: swings forward/back
-      const kneeX = leg.hipX + s * 18;
-      const kneeY = hipY + 30 + Math.abs(s) * 4;
+      // Ankle / tarsus end
+      const ankleX = kneeX + s * 14;
+      const ankleY = kneeY + 32 - Math.max(0, s) * 16;
+      const onGround = ankleY >= -8;
+      const drawAnkleY = onGround ? -2 : ankleY;
 
-      // Ankle (long tarsus characteristic of ostrich)
-      const ankleX = kneeX + s * 12;
-      // When foot is forward (s>0), ankle rises; when behind, it drops to ground
-      const ankleY = kneeY + 28 - Math.max(0, s) * 14;
+      // Shadow
+      ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+      ctx.lineWidth   = 10;
+      ctx.lineCap     = 'round';
+      ctx.beginPath(); ctx.moveTo(leg.hipX+2, hipY+2); ctx.lineTo(kneeX+2, kneeY+2); ctx.stroke();
+      ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(kneeX+2, kneeY+2); ctx.lineTo(ankleX+2, drawAnkleY+2); ctx.stroke();
 
-      // Foot: clamps to ground (y=0) when low enough
-      const footY     = Math.min(0, ankleY + 8);
-      const onGround  = ankleY >= -10;
-
-      // ── Thigh ──
-      ctx.lineCap    = 'round';
-      ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-      ctx.lineWidth  = 13;
-      ctx.beginPath(); ctx.moveTo(leg.hipX+1, hipY+1); ctx.lineTo(kneeX+1, kneeY+1); ctx.stroke();
-
-      const tg = ctx.createLinearGradient(leg.hipX-8, hipY, leg.hipX+8, hipY);
-      tg.addColorStop(0,   '#d8bc90');
-      tg.addColorStop(0.5, '#c4a870');
-      tg.addColorStop(1,   '#a08050');
+      // Thigh (pinkish-grey, thick)
+      const tg = ctx.createLinearGradient(leg.hipX-6, hipY, leg.hipX+6, hipY);
+      tg.addColorStop(0, '#c8a898'); tg.addColorStop(0.5, '#b89080'); tg.addColorStop(1, '#907060');
       ctx.strokeStyle = tg;
-      ctx.lineWidth   = 12;
+      ctx.lineWidth   = 10;
       ctx.beginPath(); ctx.moveTo(leg.hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.stroke();
 
-      // Knee joint
-      ctx.fillStyle = '#b89060';
-      ctx.beginPath(); ctx.arc(kneeX, kneeY, 7, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#cca870';
-      ctx.beginPath(); ctx.arc(kneeX-1, kneeY-1, 5, 0, Math.PI*2); ctx.fill();
+      // Knee cap
+      ctx.fillStyle = '#a07868';
+      ctx.beginPath(); ctx.arc(kneeX, kneeY, 6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c09888';
+      ctx.beginPath(); ctx.arc(kneeX-1, kneeY-1, 4, 0, Math.PI*2); ctx.fill();
 
-      // ── Tarsus (long lower leg) ──
-      const drawAnkleY = onGround ? footY : ankleY;
-      ctx.strokeStyle  = 'rgba(0,0,0,0.18)';
-      ctx.lineWidth    = 8;
-      ctx.beginPath(); ctx.moveTo(kneeX+1, kneeY+1); ctx.lineTo(ankleX+1, drawAnkleY+1); ctx.stroke();
-
-      ctx.strokeStyle = '#a08050';
+      // Tarsus (long, thinner, same pinkish-grey)
+      const tg2 = ctx.createLinearGradient(kneeX-5, kneeY, kneeX+5, kneeY);
+      tg2.addColorStop(0, '#b89080'); tg2.addColorStop(1, '#806050');
+      ctx.strokeStyle = tg2;
       ctx.lineWidth   = 7;
       ctx.beginPath(); ctx.moveTo(kneeX, kneeY); ctx.lineTo(ankleX, drawAnkleY); ctx.stroke();
 
-      // Ankle bump
-      ctx.fillStyle = '#886038';
+      // Ankle
+      ctx.fillStyle = '#806050';
       ctx.beginPath(); ctx.arc(ankleX, drawAnkleY, 5, 0, Math.PI*2); ctx.fill();
 
-      // ── Two toes ──
-      ctx.lineCap = 'round';
-      const lift = onGround ? 0 : 10;
-      ctx.strokeStyle = '#6a4828';
-      ctx.lineWidth   = 5;
-      // Forward toe
+      // Two toes (ostrich hallmark)
+      const lift = onGround ? 0 : 12;
+      ctx.strokeStyle = '#5a3820'; ctx.lineWidth = 5; ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(ankleX, drawAnkleY);
-      ctx.quadraticCurveTo(ankleX+12, drawAnkleY+lift, ankleX+24, drawAnkleY+5);
+      ctx.quadraticCurveTo(ankleX+10, drawAnkleY+lift*0.5, ankleX+26, drawAnkleY+4);
       ctx.stroke();
-      // Rear small toe
-      ctx.lineWidth = 3.5;
-      ctx.beginPath(); ctx.moveTo(ankleX, drawAnkleY); ctx.lineTo(ankleX-12, drawAnkleY+4); ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(ankleX, drawAnkleY); ctx.lineTo(ankleX-13, drawAnkleY+3); ctx.stroke();
       // Claws
-      ctx.strokeStyle = '#2a1408';
-      ctx.lineWidth   = 2;
-      ctx.beginPath(); ctx.moveTo(ankleX+24, drawAnkleY+5); ctx.lineTo(ankleX+30, drawAnkleY+3); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ankleX-12, drawAnkleY+4); ctx.lineTo(ankleX-18, drawAnkleY+2); ctx.stroke();
+      ctx.strokeStyle = '#1a0a00'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ankleX+26, drawAnkleY+4); ctx.lineTo(ankleX+33, drawAnkleY+2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ankleX-13, drawAnkleY+3); ctx.lineTo(ankleX-19, drawAnkleY+1); ctx.stroke();
     });
   }
 
   _drawBody(ctx, isPlayer) {
-    // Body center at y=-100, well above the legs (hips at y=-60)
+    // Real ostrich body: nearly black with dark brown/charcoal feathers
+    // Body center at y=-100, above legs (hips at y=-62)
     const bx = 14, by = -100;
 
-    // Tail feathers — drawn first (behind body)
+    // ── Tail feathers — fluffy white/grey plumes at back (real ostrich has white tail) ──
     ctx.save();
-    ctx.translate(bx - 42, by);
-    for (let i = 0; i < 8; i++) {
-      const angle = -0.5 + i * 0.18;
-      const len   = 32 + (i % 2) * 10;
-      const tx    = Math.cos(angle + Math.PI) * len;
-      const ty    = Math.sin(angle + Math.PI) * len;
-      ctx.strokeStyle = i % 2 === 0 ? this._darken(this.color, 20) : this._darken(this.color, 8);
-      ctx.lineWidth   = 6 - (i % 2) * 2;
+    ctx.translate(bx - 34, by + 8);
+    for (let i = 0; i < 9; i++) {
+      const angle  = -0.7 + i * 0.18;
+      const len    = 30 + (i % 3) * 8;
+      const tx     = Math.cos(angle + Math.PI) * len;
+      const ty     = Math.sin(angle + Math.PI) * len;
+      // Males have white tail plumes, females dark
+      const tailColor = i % 2 === 0 ? 'rgba(240,235,230,0.92)' : 'rgba(200,195,190,0.75)';
+      ctx.strokeStyle = tailColor;
+      ctx.lineWidth   = 5 - (i % 3);
       ctx.lineCap     = 'round';
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(tx*0.5+5, ty*0.5-8, tx, ty);
+      ctx.quadraticCurveTo(tx*0.45+4, ty*0.45-10, tx, ty);
       ctx.stroke();
     }
     ctx.restore();
 
-    // Main body — slightly elongated vertically (taller than wide like a real ostrich)
-    const bodyGrad = ctx.createRadialGradient(bx-10, by-12, 4, bx, by, 48);
-    bodyGrad.addColorStop(0,   this._lighten(this.color, 65));
-    bodyGrad.addColorStop(0.25, this._lighten(this.color, 30));
-    bodyGrad.addColorStop(0.65, this.color);
-    bodyGrad.addColorStop(1,   this._darken(this.color, 38));
+    // ── Main body: dark charcoal-black, slightly elongated ──
+    const bodyGrad = ctx.createRadialGradient(bx-14, by-16, 3, bx, by, 50);
+    bodyGrad.addColorStop(0,    '#4a4a50');   // lit top (dark grey)
+    bodyGrad.addColorStop(0.30, '#282830');   // mid dark
+    bodyGrad.addColorStop(0.70, '#141418');   // very dark
+    bodyGrad.addColorStop(1,    '#080808');   // near black edge
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.ellipse(bx, by, 38, 44, -0.08, 0, Math.PI * 2);  // taller than wide
+    ctx.ellipse(bx, by, 40, 46, -0.08, 0, Math.PI*2);
     ctx.fill();
 
-    // Wing feather layers — 5 arcs across body left side
-    for (let i = 0; i < 5; i++) {
-      const wy = by - 8 + i * 10;   // spread vertically
-      const wx = bx - 32 + i * 3;
-      const wg = ctx.createLinearGradient(wx, wy-6, wx+40, wy+8);
-      wg.addColorStop(0,   this._lighten(this.color, 12 - i*4));
-      wg.addColorStop(1,   this._darken(this.color,  22 + i*6));
-      ctx.strokeStyle = wg;
-      ctx.lineWidth   = 8 - i;
+    // ── Wing feather texture (dark feather layers) ──
+    for (let i = 0; i < 6; i++) {
+      const wy = by - 14 + i * 10;
+      const wx = bx - 34 + i * 2;
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(60,58,62,0.9)' : 'rgba(35,33,38,0.9)';
+      ctx.lineWidth   = 9 - i * 0.8;
       ctx.lineCap     = 'round';
       ctx.beginPath();
-      ctx.ellipse(wx+20, wy, 22-i*1.5, 9, 0.3, Math.PI*0.06, Math.PI*0.94);
+      ctx.ellipse(wx+20, wy, 24-i*1.5, 9, 0.28, Math.PI*0.05, Math.PI*0.95);
       ctx.stroke();
-      // Feather tip
-      ctx.fillStyle = this._darken(this.color, 28+i*5);
-      ctx.beginPath(); ctx.arc(wx+40-i*2, wy+3, 3, 0, Math.PI*2); ctx.fill();
     }
 
-    // Rim light from sun (right side)
+    // ── Accent color patch on wing (the ostrich's individual color identifier) ──
     ctx.save();
-    ctx.globalAlpha = 0.20;
-    ctx.strokeStyle = 'rgba(255,210,100,1)';
-    ctx.lineWidth   = 4;
+    ctx.globalAlpha = 0.65;
+    const accentGrad = ctx.createRadialGradient(bx-5, by+4, 0, bx-5, by+4, 22);
+    accentGrad.addColorStop(0, this._lighten(this.color, 30));
+    accentGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = accentGrad;
     ctx.beginPath();
-    ctx.ellipse(bx, by, 40, 46, -0.08, -0.5, 0.7);
+    ctx.ellipse(bx-5, by+4, 18, 14, 0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // ── Sunlit rim (warm golden from right-side sun) ──
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = 'rgba(255,200,100,1)';
+    ctx.lineWidth   = 5;
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 42, 48, -0.08, -0.55, 0.65);
     ctx.stroke();
     ctx.restore();
 
-    // Specular top highlight
+    // ── Top specular (feather sheen) ──
     ctx.save();
-    ctx.globalAlpha = 0.18;
-    const sg = ctx.createRadialGradient(bx-8, by-22, 0, bx-8, by-22, 26);
+    ctx.globalAlpha = 0.12;
+    const sg = ctx.createRadialGradient(bx-10, by-24, 0, bx-10, by-24, 28);
     sg.addColorStop(0, 'rgba(255,255,255,1)');
     sg.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sg;
     ctx.beginPath();
-    ctx.ellipse(bx-8, by-20, 22, 14, -0.3, 0, Math.PI*2);
+    ctx.ellipse(bx-10, by-22, 24, 14, -0.25, 0, Math.PI*2);
     ctx.fill();
     ctx.restore();
 
@@ -342,181 +338,148 @@ class Ostrich {
       ctx.strokeStyle = '#f1c40f';
       ctx.lineWidth   = 4;
       ctx.shadowColor = '#f1c40f';
-      ctx.shadowBlur  = 18;
+      ctx.shadowBlur  = 20;
       ctx.beginPath();
-      ctx.ellipse(bx, by, 44, 50, -0.08, 0, Math.PI*2);
+      ctx.ellipse(bx, by, 46, 52, -0.08, 0, Math.PI*2);
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
   }
 
   _drawNeckHead(ctx) {
-    const sway = Math.sin(this.neckPhase) * 6;
-    const bob  = Math.abs(Math.sin(this.stridePhase)) * -5;
+    // Real ostrich: LONG bare grey-pink neck, small flat head
+    const sway = Math.sin(this.neckPhase) * 5;
+    const bob  = Math.abs(Math.sin(this.stridePhase)) * -4;
 
-    // Neck base connects from top of body (body center y=-100, radius 44 → top ~y=-144... neck base just above body center)
-    const nx0 = 42, ny0 = -130;      // base just above body top
-    const nx1 = 52 + sway*0.5, ny1 = -150 + bob*0.4;  // mid
-    const nx2 = 58 + sway, ny2 = -168 + bob;           // top of neck
+    // Neck runs from body top up and forward
+    const nx0 = 40,  ny0 = -136;        // base (just above body top)
+    const nx1 = 52 + sway*0.4, ny1 = -154 + bob*0.3;
+    const nx2 = 60 + sway, ny2 = -170 + bob;
 
     // Neck shadow
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth = 17;
-    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth   = 16;
+    ctx.lineCap     = 'round';
     ctx.beginPath();
-    ctx.moveTo(nx0 + 2, ny0 + 2);
-    ctx.quadraticCurveTo(nx1 + 2, ny1 + 2, nx2 + 2, ny2 + 2);
+    ctx.moveTo(nx0+2, ny0+2);
+    ctx.quadraticCurveTo(nx1+2, ny1+2, nx2+2, ny2+2);
     ctx.stroke();
 
-    // Neck back side (darker)
-    ctx.strokeStyle = this._darken('#c09060', 22);
-    ctx.lineWidth = 16;
+    // Neck back (darker, shadow side)
+    ctx.strokeStyle = '#8a6858';
+    ctx.lineWidth   = 14;
     ctx.beginPath();
-    ctx.moveTo(nx0, ny0);
-    ctx.quadraticCurveTo(nx1, ny1, nx2, ny2);
-    ctx.stroke();
+    ctx.moveTo(nx0, ny0); ctx.quadraticCurveTo(nx1, ny1, nx2, ny2); ctx.stroke();
 
-    // Neck main
-    const nGrad = ctx.createLinearGradient(nx0 - 8, ny0, nx0 + 8, ny0);
-    nGrad.addColorStop(0,   '#dab880');
-    nGrad.addColorStop(0.45,'#c8a060');
-    nGrad.addColorStop(1,   '#a07840');
+    // Neck main (pale grey-pink, bare skin — like real ostrich)
+    const nGrad = ctx.createLinearGradient(nx0-8, ny0, nx0+8, ny0);
+    nGrad.addColorStop(0,    '#ddd0c0');  // lit side
+    nGrad.addColorStop(0.4,  '#c8b8a8');  // mid
+    nGrad.addColorStop(1,    '#a09080');  // shadow side
     ctx.strokeStyle = nGrad;
-    ctx.lineWidth = 13;
+    ctx.lineWidth   = 11;
     ctx.beginPath();
-    ctx.moveTo(nx0, ny0);
-    ctx.quadraticCurveTo(nx1, ny1, nx2, ny2);
-    ctx.stroke();
+    ctx.moveTo(nx0, ny0); ctx.quadraticCurveTo(nx1, ny1, nx2, ny2); ctx.stroke();
 
-    // Neck feather texture (short cross-strokes)
-    ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+    // Neck pin-feather texture
+    ctx.strokeStyle = 'rgba(90,70,60,0.12)';
     ctx.lineWidth = 1.5;
-    for (let n = 0; n < 5; n++) {
-      const t   = n / 4;
-      const cx  = nx0 + (nx2 - nx0) * t;
-      const cy  = ny0 + (ny2 - ny0) * t;
+    for (let n = 0; n < 6; n++) {
+      const nt = n / 5;
+      const cx = nx0 + (nx2-nx0)*nt;
+      const cy = ny0 + (ny2-ny0)*nt;
+      ctx.beginPath(); ctx.moveTo(cx-6, cy+1); ctx.lineTo(cx+6, cy-1); ctx.stroke();
+    }
+
+    // Neck-to-body join feather tuft
+    ctx.strokeStyle = '#303030';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (let f = 0; f < 4; f++) {
       ctx.beginPath();
-      ctx.moveTo(cx - 7, cy + 2);
-      ctx.lineTo(cx + 7, cy - 2);
+      ctx.moveTo(nx0 - 4 + f*3, ny0 + 4);
+      ctx.lineTo(nx0 - 8 + f*4, ny0 + 16);
       ctx.stroke();
     }
 
-    // ── HEAD ──
-    const hx = nx2 + 6;
-    const hy = ny2 - 10;
+    // ── HEAD ──  (small, flat, grey)
+    const hx = nx2 + 5;
+    const hy = ny2 - 8;
 
     // Head shadow
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = 'rgba(0,0,0,1)';
-    ctx.beginPath();
-    ctx.ellipse(hx + 2, hy + 2, 20, 14, 0.25, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.save(); ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(hx+2, hy+2, 18, 12, 0.2, 0, Math.PI*2); ctx.fill();
     ctx.restore();
 
-    // Head base
-    const hGrad = ctx.createRadialGradient(hx - 6, hy - 5, 1, hx, hy, 20);
-    hGrad.addColorStop(0,   this._lighten('#c8a060', 40));
-    hGrad.addColorStop(0.5, '#c8a060');
-    hGrad.addColorStop(1,   this._darken('#c8a060', 25));
+    // Head base (flat, grey-pink)
+    const hGrad = ctx.createRadialGradient(hx-5, hy-4, 1, hx, hy, 18);
+    hGrad.addColorStop(0,   '#e0d0c0');
+    hGrad.addColorStop(0.5, '#c0b0a0');
+    hGrad.addColorStop(1,   '#907860');
     ctx.fillStyle = hGrad;
-    ctx.beginPath();
-    ctx.ellipse(hx, hy, 19, 13, 0.25, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx, hy, 17, 11, 0.2, 0, Math.PI*2); ctx.fill();
 
-    // Eye socket (darker)
-    ctx.fillStyle = this._darken('#c8a060', 30);
-    ctx.beginPath();
-    ctx.arc(hx + 8, hy - 4, 7, 0, Math.PI * 2);
-    ctx.fill();
+    // Eye socket
+    ctx.fillStyle = '#806050';
+    ctx.beginPath(); ctx.arc(hx+7, hy-3, 6.5, 0, Math.PI*2); ctx.fill();
 
-    // Eye white sclera
-    ctx.fillStyle = '#f8f0e0';
-    ctx.beginPath();
-    ctx.arc(hx + 8, hy - 4, 5.5, 0, Math.PI * 2);
-    ctx.fill();
+    // Sclera
+    ctx.fillStyle = '#f0e8d8';
+    ctx.beginPath(); ctx.arc(hx+7, hy-3, 5, 0, Math.PI*2); ctx.fill();
 
-    // Iris
-    ctx.fillStyle = '#2a6010';
-    ctx.beginPath();
-    ctx.arc(hx + 9, hy - 4, 3.8, 0, Math.PI * 2);
-    ctx.fill();
+    // Iris (amber-brown like real ostrich)
+    ctx.fillStyle = '#a06820';
+    ctx.beginPath(); ctx.arc(hx+8, hy-3, 3.5, 0, Math.PI*2); ctx.fill();
 
     // Pupil
-    ctx.fillStyle = '#0a0a0a';
+    ctx.fillStyle = '#050505';
+    ctx.beginPath(); ctx.arc(hx+8.5, hy-3.5, 2, 0, Math.PI*2); ctx.fill();
+
+    // Catchlight
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath(); ctx.arc(hx+9.5, hy-4.8, 1.0, 0, Math.PI*2); ctx.fill();
+
+    // Eye ring (golden, real ostrich has distinctive eye ring)
+    ctx.strokeStyle = '#d4a020'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(hx+7, hy-3, 5.5, 0, Math.PI*2); ctx.stroke();
+
+    // ── Beak (flat, pink-grey, wide) ──
+    const beakOpen = Math.max(0, Math.sin(this.stridePhase * 1.2)) * 2.5;
+    const bkx = hx + 14, bky = hy + 1;
+
+    ctx.fillStyle = '#c0a090';  // pinkish-grey beak
     ctx.beginPath();
-    ctx.arc(hx + 9.5, hy - 4.5, 2.2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(hx+10, bky-3);
+    ctx.quadraticCurveTo(bkx+2, bky-2-beakOpen, bkx+12, bky-1-beakOpen);
+    ctx.quadraticCurveTo(bkx+2, bky+1, hx+10, bky);
+    ctx.closePath(); ctx.fill();
 
-    // Eye catchlight
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillStyle = '#a08878';
     ctx.beginPath();
-    ctx.arc(hx + 10.5, hy - 5.8, 1.1, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(hx+10, bky);
+    ctx.quadraticCurveTo(bkx+2, bky+1, bkx+11, bky+2+beakOpen);
+    ctx.quadraticCurveTo(bkx, bky+3, hx+10, bky+3);
+    ctx.closePath(); ctx.fill();
 
-    // Eye ring
-    ctx.strokeStyle = '#f0c840';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(hx + 8, hy - 4, 6, 0, Math.PI * 2);
-    ctx.stroke();
+    // Beak nostril dot
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.beginPath(); ctx.ellipse(hx+13, bky-1, 2, 1.2, 0.3, 0, Math.PI*2); ctx.fill();
 
-    // Beak — wide flat bill, two halves
-    const bx = hx + 17;
-    const by = hy + 1;
-    const beakOpen = Math.max(0, Math.sin(this.stridePhase * 1.3)) * 3;
-
-    // Upper mandible
-    ctx.fillStyle = '#e8b850';
-    ctx.beginPath();
-    ctx.moveTo(hx + 12, by - 4);
-    ctx.quadraticCurveTo(bx + 4, by - 3 - beakOpen, bx + 14, by - 2 - beakOpen);
-    ctx.quadraticCurveTo(bx + 4, by + 1, hx + 12, by);
-    ctx.closePath();
-    ctx.fill();
-
-    // Lower mandible
-    ctx.fillStyle = '#d0a030';
-    ctx.beginPath();
-    ctx.moveTo(hx + 12, by);
-    ctx.quadraticCurveTo(bx + 4, by + 1, bx + 12, by + 2 + beakOpen);
-    ctx.quadraticCurveTo(bx, by + 3, hx + 12, by + 3);
-    ctx.closePath();
-    ctx.fill();
-
-    // Beak ridge line
-    ctx.strokeStyle = '#b88820';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(hx + 12, by - 2);
-    ctx.quadraticCurveTo(bx + 4, by - 1, bx + 13, by - 1 - beakOpen);
-    ctx.stroke();
-
-    // Head crest feathers
-    ctx.strokeStyle = this._darken('#c8a060', 12);
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    for (let f = 0; f < 6; f++) {
-      const fx = hx - 2 + f * 3.5;
-      const fBase = hy - 11;
-      const fH = 10 + (f % 2) * 6;
+    // ── Small head plume (3 thin feathers) ──
+    ctx.strokeStyle = '#888070'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let f = 0; f < 3; f++) {
       ctx.beginPath();
-      ctx.moveTo(fx, fBase);
-      ctx.quadraticCurveTo(fx + f * 0.8 - 2, fBase - fH * 0.6, fx + f * 1.2 - 4, fBase - fH);
+      ctx.moveTo(hx - 1 + f*3, hy - 9);
+      ctx.quadraticCurveTo(hx + f*2 - 2, hy - 18, hx + f*3 - 5, hy - 22);
       ctx.stroke();
     }
-
-    // Throat pouch (eyelid under beak)
-    ctx.fillStyle = 'rgba(200,90,60,0.25)';
-    ctx.beginPath();
-    ctx.ellipse(hx + 6, hy + 8, 7, 4, 0.2, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   _drawJockey(ctx) {
-    // Jockey sits on ostrich back — body center at y=-100, top of body ~y=-144
-    const jX  = 20;
-    const jY  = -138;
+    // Jockey sits on ostrich back — body center y=-100, body top ~y=-146
+    const jX  = 18;
+    const jY  = -142;
     const bob = Math.sin(this.stridePhase) * 3;
     const lean = Math.sin(this.stridePhase * 0.5) * 4; // slight forward lean
 
