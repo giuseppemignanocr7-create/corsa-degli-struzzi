@@ -109,6 +109,26 @@
     }
   });
 
+  // ─── MOBILE TOUCH CONTROLS ───────────────
+  // Tap canvas = trigger mini burst on player ostrich
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (gameState === 'RACING' && userChoice && race) {
+      const player = race.getOstrichById(userChoice);
+      if (player && !player.finished) {
+        // Force a short burst
+        player.burstTimer = 600 + Math.random() * 400;
+        player.burstSpeed = CONFIG.BURST_MAGNITUDE * 0.55;
+        player.isBursting = true;
+      }
+    } else if (gameState === 'PAUSED') {
+      resumeGame();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+
   // ─── MAIN GAME LOOP ──────────────────────
 
   function gameLoop(timestamp) {

@@ -31,6 +31,7 @@ canvas#raceCanvas {
   inset: 0;
   width: 100vw;
   height: 100vh;
+  touch-action: none;
 }
 
 /* ── SCREENS ─────────────────────────────── */
@@ -73,8 +74,8 @@ canvas#raceCanvas {
 .ostrich-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: clamp(10px, 2vw, 20px);
-  width: min(900px, 90vw);
+  gap: clamp(8px, 2vw, 20px);
+  width: min(900px, 94vw);
 }
 
 .ostrich-card {
@@ -189,20 +190,21 @@ canvas#raceCanvas {
 
 #hud-timer {
   position: fixed;
-  top: 18px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,10,0,0.9));
   border: 3px solid var(--gold);
   border-radius: 14px;
-  padding: 10px 32px;
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  padding: 8px 24px;
+  font-size: clamp(1.4rem, 4vw, 3.2rem);
   color: var(--gold);
   text-shadow: 0 0 20px rgba(241,196,15,0.6), 2px 2px 4px #000;
   letter-spacing: 3px;
   transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;
   box-shadow: 0 0 24px rgba(241,196,15,0.25), 0 4px 16px rgba(0,0,0,0.5);
   pointer-events: none;
+  white-space: nowrap;
 }
 #hud-timer.warning {
   color: #e67e22;
@@ -221,13 +223,14 @@ canvas#raceCanvas {
 
 #hud-standings {
   position: fixed;
-  top: 18px;
-  right: 18px;
+  top: 12px;
+  right: 10px;
   background: linear-gradient(160deg, rgba(0,0,0,0.88), rgba(15,8,0,0.92));
   border: 2px solid rgba(241,196,15,0.35);
   border-radius: 16px;
-  padding: 12px 16px 10px;
-  min-width: 172px;
+  padding: 10px 12px 8px;
+  min-width: 140px;
+  max-width: 180px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
   backdrop-filter: blur(2px);
 }
@@ -277,14 +280,14 @@ canvas#raceCanvas {
 
 #hud-progress-wrap {
   position: fixed;
-  bottom: 18px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(720px, 86vw);
+  width: min(720px, 88vw);
   background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(15,8,0,0.9));
   border: 2px solid rgba(241,196,15,0.3);
   border-radius: 30px;
-  padding: 10px 20px 12px;
+  padding: 8px 16px 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
   backdrop-filter: blur(2px);
 }
@@ -331,15 +334,15 @@ canvas#raceCanvas {
 }
 #hud-player-pos {
   position: fixed;
-  top: 18px;
-  left: 18px;
+  top: 12px;
+  left: 10px;
   background: linear-gradient(160deg, rgba(0,0,0,0.88), rgba(15,8,0,0.92));
   border: 2px solid rgba(241,196,15,0.35);
   border-radius: 16px;
-  padding: 10px 20px 12px;
+  padding: 8px 14px 10px;
   color: white;
   text-align: center;
-  min-width: 118px;
+  min-width: 100px;
   pointer-events: none;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
   backdrop-filter: blur(2px);
@@ -362,20 +365,21 @@ canvas#raceCanvas {
 /* ── PAUSE BUTTON ─────────────────────────── */
 #hud-pause-btn {
   position: fixed;
-  top: 22px;
+  top: 16px;
   left: 50%;
-  margin-left: 116px;
+  margin-left: clamp(80px, 10vw, 120px);
   background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,10,0,0.9));
   border: 2px solid rgba(241,196,15,0.3);
   border-radius: 12px;
   color: rgba(255,255,255,0.8);
   font-size: 1.1rem;
-  width: 46px; height: 46px;
+  width: 44px; height: 44px;
   cursor: pointer;
   pointer-events: all;
   transition: background 0.2s, transform 0.12s, box-shadow 0.2s;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  -webkit-tap-highlight-color: transparent;
 }
 #hud-pause-btn:hover {
   background: rgba(241,196,15,0.15);
@@ -561,7 +565,56 @@ canvas#raceCanvas {
   box-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
-/* ── CANVAS OVERLAY LABELS ─────────────────── */
+/* ── MOBILE BURST BUTTON ────────────────────── */
+#mobile-tap-hint {
+  display: none;
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.45);
+  font-size: 0.72rem;
+  font-family: Arial, sans-serif;
+  letter-spacing: 2px;
+  pointer-events: none;
+  text-align: center;
+}
+
+/* ── MOBILE MEDIA QUERIES ─────────────────── */
+@media (max-width: 600px) {
+  .ostrich-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 96vw;
+  }
+  #screen-select h1 { font-size: 1.8rem; letter-spacing: 2px; }
+  #screen-select .subtitle { font-size: 0.72rem; margin-bottom: 18px; }
+  .start-btn { padding: 14px 40px; font-size: 1.1rem; margin-top: 18px; }
+
+  #hud-standings { display: none; }
+  #hud-player-pos { top: 10px; left: 8px; min-width: 80px; padding: 6px 10px 8px; }
+  #hud-player-pos .pos-big { font-size: 1.8rem; }
+  .player-pos-label { font-size: 0.48rem; }
+  #hud-timer { top: 10px; font-size: 1.3rem; padding: 6px 16px; }
+  #hud-pause-btn { width: 38px; height: 38px; font-size: 0.9rem; margin-left: 72px; }
+  #hud-progress-wrap { bottom: 8px; width: 94vw; padding: 6px 12px 8px; }
+  #hud-progress-wrap h4 { font-size: 0.52rem; margin-bottom: 5px; }
+  #hud-progress-track { height: 11px; }
+  .progress-marker { width: 18px; height: 18px; font-size: 7px; }
+  #mobile-tap-hint { display: block; }
+
+  #pause-panel { padding: 28px 32px; }
+  .pause-menu-btn { width: 220px; }
+}
+
+@media (max-width: 600px) and (orientation: landscape) {
+  .ostrich-grid { grid-template-columns: repeat(3, 1fr); }
+  #screen-select h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  #screen-select .subtitle { margin-bottom: 10px; }
+  .start-btn { margin-top: 10px; padding: 10px 32px; }
+}
+
+/* ── CANVAS OVERLAY LABELS ──────────────────── */
 #screen-hud.hidden, #screen-countdown.hidden, #screen-results.hidden, #screen-select.hidden {
   opacity: 0;
   pointer-events: none;

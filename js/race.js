@@ -201,7 +201,6 @@ class RaceEngine {
     ctx.clearRect(0, 0, W, H);
 
     this._drawSky(W, H);
-    this._drawStands(W, H);
     this._drawDistantDunes(W, H);
     this._drawMidDunes(W, H);
     this._drawGround(W, H);
@@ -224,45 +223,39 @@ class RaceEngine {
 
   _drawSky(W, H) {
     const ctx  = this.ctx;
-    const skyH = H * 0.575; // sky ends at stand base
+    const skyH = H * 0.63; // sky fills to ground line
     const t    = this.elapsed / 1000;
 
-    // ── Gradient: deep midnight-blue top → rich amber horizon ──
+    // ── Rich 6-stop sunset gradient ──
     const grad = ctx.createLinearGradient(0, 0, 0, skyH);
-    grad.addColorStop(0,    '#06091a');
-    grad.addColorStop(0.12, '#0d1b38');
-    grad.addColorStop(0.30, '#1a2a5a');
-    grad.addColorStop(0.55, '#b84010');
-    grad.addColorStop(0.78, '#e86818');
-    grad.addColorStop(1,    '#f5aa30');
+    grad.addColorStop(0,    '#04060f');
+    grad.addColorStop(0.10, '#0a1228');
+    grad.addColorStop(0.28, '#18224a');
+    grad.addColorStop(0.52, '#8c2e08');
+    grad.addColorStop(0.76, '#d95f10');
+    grad.addColorStop(1,    '#f0a020');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, skyH);
 
-    // ── Sunset crepuscular rays fanning from horizon ──
-    const rayOriginX = W * 0.62;
-    const rayOriginY = skyH * 0.95;
+    // ── Crepuscular rays from sun position ──
+    const sunScrollFrac = this.cameraX * 0.03;
+    const sunXray = ((W * 0.72 - sunScrollFrac) % W + W) % W;
+    const rayOriginY = skyH * 0.96;
     ctx.save();
-    for (let r = 0; r < 12; r++) {
-      const angle = -Math.PI * 0.5 - 0.55 + r * (Math.PI * 0.12);
-      const rayLen = skyH * 1.1;
-      const x2 = rayOriginX + Math.cos(angle) * rayLen;
-      const y2 = rayOriginY + Math.sin(angle) * rayLen;
-      const rayGrad = ctx.createLinearGradient(rayOriginX, rayOriginY, x2, y2);
-      rayGrad.addColorStop(0,   'rgba(255,180,60,0.07)');
-      rayGrad.addColorStop(0.5, 'rgba(255,140,30,0.04)');
-      rayGrad.addColorStop(1,   'rgba(255,100,0,0)');
+    ctx.globalAlpha = 0.06;
+    for (let r = 0; r < 14; r++) {
+      const angle = -Math.PI * 0.55 + r * (Math.PI * 0.115);
+      const rayLen = skyH * 1.2;
+      const rayGrad = ctx.createLinearGradient(sunXray, rayOriginY,
+        sunXray + Math.cos(angle) * rayLen, rayOriginY + Math.sin(angle) * rayLen);
+      rayGrad.addColorStop(0,   'rgba(255,200,80,1)');
+      rayGrad.addColorStop(1,   'rgba(255,120,0,0)');
       ctx.fillStyle = rayGrad;
       ctx.beginPath();
-      ctx.moveTo(rayOriginX, rayOriginY);
-      const spread = 0.04;
-      ctx.lineTo(
-        rayOriginX + Math.cos(angle - spread) * rayLen,
-        rayOriginY + Math.sin(angle - spread) * rayLen
-      );
-      ctx.lineTo(
-        rayOriginX + Math.cos(angle + spread) * rayLen,
-        rayOriginY + Math.sin(angle + spread) * rayLen
-      );
+      ctx.moveTo(sunXray, rayOriginY);
+      const sp = 0.045;
+      ctx.lineTo(sunXray + Math.cos(angle - sp) * rayLen, rayOriginY + Math.sin(angle - sp) * rayLen);
+      ctx.lineTo(sunXray + Math.cos(angle + sp) * rayLen, rayOriginY + Math.sin(angle + sp) * rayLen);
       ctx.closePath();
       ctx.fill();
     }
@@ -289,11 +282,10 @@ class RaceEngine {
       ctx.fill();
     });
 
-    // ── Sun position (parallax, drifts right as camera moves) ──
-    const sunScroll = this.cameraX * 0.04;
-    const sunX = ((W * 0.68 - sunScroll % W) + W * 2) % W;
-    const sunY = skyH * 0.82;
-    const sunR = 48;
+    // ── Sun ──
+    const sunX = sunXray;
+    const sunY = skyH * 0.78;
+    const sunR  = H * 0.072;
 
     // Outer glow
     const coronaOuter = ctx.createRadialGradient(sunX, sunY, sunR, sunX, sunY, sunR * 5);
@@ -325,235 +317,251 @@ class RaceEngine {
     ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
     ctx.fill();
 
-    // ── Volumetric clouds: multi-puff style ──
+    // ── Volumetric clouds ──
     if (!this._clouds) {
       this._clouds = [];
-      for (let i = 0; i < 14; i++) {
-        const puffCount = 3 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < 10; i++) {
+        const pc = 2 + Math.floor(Math.random() * 5);
         const puffs = [];
-        for (let p = 0; p < puffCount; p++) {
-          puffs.push({
-            ox: (Math.random() - 0.3) * 180,
-            oy: (Math.random() - 0.5) * 30,
-            r:  28 + Math.random() * 55,
-          });
-        }
+        for (let p = 0; p < pc; p++)
+          puffs.push({ ox: (Math.random()-0.3)*160, oy: (Math.random()-0.5)*22, r: H*0.022 + Math.random()*H*0.045 });
         this._clouds.push({
-          worldX: Math.random() * CONFIG.TRACK_LENGTH * 1.3,
-          yFrac:  0.04 + Math.random() * 0.55,
+          worldX: Math.random() * CONFIG.TRACK_LENGTH * 1.4,
+          yFrac:  0.05 + Math.random() * 0.48,
           puffs,
-          alpha:  0.10 + Math.random() * 0.18,
-          speed:  0.012 + Math.random() * 0.018, // drift speed
-          drift:  Math.random() * 1000,
+          alpha:  0.09 + Math.random() * 0.15,
+          speed:  0.014 + Math.random() * 0.016,
         });
       }
     }
     this._clouds.forEach(c => {
-      const cx = (c.worldX + t * c.speed * 60 - this.cameraX * 0.04) % (W * 1.8);
-      const cy = skyH * c.yFrac;
-      // Tint: high clouds are blue-white, low are amber
-      const lowness = c.yFrac;  // 0=top, 1=horizon
-      const rr = Math.floor(220 + lowness * 35);
-      const gg = Math.floor(180 + lowness * 20);
-      const bb = Math.floor(220 - lowness * 140);
-
+      const cx  = ((c.worldX + t * c.speed * 60 - this.cameraX * 0.03) % (W * 2) + W * 2) % (W * 2);
+      const cy  = skyH * c.yFrac;
+      const low = c.yFrac;
+      const rr  = Math.floor(215 + low * 40);
+      const gg  = Math.floor(170 + low * 20);
+      const bb  = Math.floor(210 - low * 140);
       c.puffs.forEach(p => {
-        const pg = ctx.createRadialGradient(cx + p.ox, cy + p.oy - p.r * 0.2, 0, cx + p.ox, cy + p.oy, p.r);
+        const pg = ctx.createRadialGradient(cx+p.ox, cy+p.oy-p.r*0.15, 0, cx+p.ox, cy+p.oy, p.r);
         pg.addColorStop(0,   `rgba(${rr},${gg},${bb},${c.alpha})`);
-        pg.addColorStop(0.6, `rgba(${rr-20},${gg-20},${bb-40},${c.alpha * 0.55})`);
-        pg.addColorStop(1,   `rgba(${rr-40},${gg-40},${bb-80},0)`);
+        pg.addColorStop(0.55,`rgba(${rr-20},${gg-20},${bb-50},${c.alpha*0.5})`);
+        pg.addColorStop(1,   `rgba(${rr-40},${gg-40},${bb-90},0)`);
         ctx.fillStyle = pg;
         ctx.beginPath();
-        ctx.arc(cx + p.ox, cy + p.oy, p.r, 0, Math.PI * 2);
+        ctx.arc(cx+p.ox, cy+p.oy, p.r, 0, Math.PI*2);
         ctx.fill();
       });
     });
 
-    // ── Horizon atmospheric haze ──
-    const hazeGrad = ctx.createLinearGradient(0, skyH * 0.78, 0, skyH);
-    hazeGrad.addColorStop(0,   'rgba(255,160,60,0)');
-    hazeGrad.addColorStop(0.5, 'rgba(255,180,80,0.14)');
-    hazeGrad.addColorStop(1,   'rgba(255,200,100,0.28)');
-    ctx.fillStyle = hazeGrad;
-    ctx.fillRect(0, skyH * 0.78, W, skyH * 0.22);
+    // ── Horizon glow band ──
+    const haze = ctx.createLinearGradient(0, skyH*0.80, 0, skyH);
+    haze.addColorStop(0,   'rgba(240,130,30,0)');
+    haze.addColorStop(0.5, 'rgba(250,160,50,0.18)');
+    haze.addColorStop(1,   'rgba(255,190,80,0.38)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, skyH*0.80, W, skyH*0.20);
   }
 
   _drawDistantDunes(W, H) {
     const ctx    = this.ctx;
-    const scroll = (this.cameraX * CONFIG.PARALLAX[1]) % W;
-    const base   = H * 0.575; // align to stand horizon
+    // 3 parallax-scrolling distant dune layers (far, mid-far, near-far)
+    const layers = [
+      { parallax: CONFIG.PARALLAX[1]*0.6, top:'#4a2208', mid:'#6a3415', bot:'#8a4a20', peakFrac:0.44, baseFrac:0.63 },
+      { parallax: CONFIG.PARALLAX[1]*0.8, top:'#5a2e10', mid:'#7e4020', bot:'#9e5a2a', peakFrac:0.49, baseFrac:0.63 },
+      { parallax: CONFIG.PARALLAX[1],     top:'#6e3a18', mid:'#946030', bot:'#b07840', peakFrac:0.53, baseFrac:0.63 },
+    ];
+    layers.forEach((L, li) => {
+      const scroll = (this.cameraX * L.parallax) % W;
+      const baseY  = H * L.baseFrac;
+      const peakY  = H * L.peakFrac;
 
-    // Atmospheric haze overlay — makes far dunes look hazy/distant
-    const hazeLayer = ctx.createLinearGradient(0, base * 0.62, 0, base);
-    hazeLayer.addColorStop(0,   'rgba(140,100,60,0)');
-    hazeLayer.addColorStop(1,   'rgba(180,120,60,0.22)');
+      // Shadow offset pass
+      ctx.fillStyle = L.top;
+      for (let rep = -1; rep <= 1; rep++) {
+        const ox = rep * W - scroll;
+        ctx.beginPath();
+        ctx.moveTo(ox,         baseY);
+        ctx.bezierCurveTo(ox+W*0.13, peakY*1.04, ox+W*0.27, peakY*1.10, ox+W*0.40, baseY*0.90);
+        ctx.bezierCurveTo(ox+W*0.52, peakY*1.06, ox+W*0.64, peakY*0.96, ox+W*0.76, baseY*0.93);
+        ctx.bezierCurveTo(ox+W*0.86, peakY*1.01, ox+W*0.93, peakY*1.07, ox+W,      baseY);
+        ctx.lineTo(ox+W, baseY); ctx.lineTo(ox, baseY);
+        ctx.closePath(); ctx.fill();
+      }
 
-    // Dark shadow silhouette (furthest, most faded)
-    const shadowColor = 'rgba(90,45,18,0.75)';
-    ctx.fillStyle = shadowColor;
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox,          base);
-      ctx.bezierCurveTo(ox + W*0.12, base*0.67, ox + W*0.25, base*0.73, ox + W*0.38, base*0.88);
-      ctx.bezierCurveTo(ox + W*0.50, base*0.71, ox + W*0.62, base*0.60, ox + W*0.73, base*0.78);
-      ctx.bezierCurveTo(ox + W*0.83, base*0.66, ox + W*0.91, base*0.75, ox + W,      base);
-      ctx.closePath();
-      ctx.fill();
-    }
+      // Main gradient dune
+      const dg = ctx.createLinearGradient(0, peakY, 0, baseY);
+      dg.addColorStop(0,   L.mid);
+      dg.addColorStop(0.6, L.bot);
+      dg.addColorStop(1,   L.bot);
+      ctx.fillStyle = dg;
+      for (let rep = -1; rep <= 1; rep++) {
+        const ox = rep * W - scroll;
+        ctx.beginPath();
+        ctx.moveTo(ox,         baseY);
+        ctx.bezierCurveTo(ox+W*0.14, peakY*1.02, ox+W*0.28, peakY*1.08, ox+W*0.41, baseY*0.88);
+        ctx.bezierCurveTo(ox+W*0.53, peakY*1.04, ox+W*0.65, peakY*0.94, ox+W*0.77, baseY*0.91);
+        ctx.bezierCurveTo(ox+W*0.87, peakY*0.99, ox+W*0.94, peakY*1.05, ox+W,      baseY);
+        ctx.lineTo(ox+W, baseY); ctx.lineTo(ox, baseY);
+        ctx.closePath(); ctx.fill();
+      }
 
-    // Main dune silhouette — 3-stop gradient for depth
-    const dg = ctx.createLinearGradient(0, base * 0.55, 0, base);
-    dg.addColorStop(0,   '#7a3c18');
-    dg.addColorStop(0.5, '#a05828');
-    dg.addColorStop(1,   '#c07838');
-    ctx.fillStyle = dg;
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox,          base);
-      ctx.bezierCurveTo(ox + W*0.15, base*0.62, ox + W*0.28, base*0.69, ox + W*0.4,  base*0.87);
-      ctx.bezierCurveTo(ox + W*0.52, base*0.69, ox + W*0.65, base*0.58, ox + W*0.75, base*0.77);
-      ctx.bezierCurveTo(ox + W*0.85, base*0.63, ox + W*0.92, base*0.72, ox + W,      base);
-      ctx.closePath();
-      ctx.fill();
-    }
+      // Sunlit ridge
+      const ridgeAlpha = 0.10 + li * 0.04;
+      ctx.strokeStyle = `rgba(255,210,120,${ridgeAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      for (let rep = -1; rep <= 1; rep++) {
+        const ox = rep * W - scroll;
+        ctx.beginPath();
+        ctx.moveTo(ox+W*0.14, peakY*1.02);
+        ctx.bezierCurveTo(ox+W*0.28, peakY*1.08, ox+W*0.41, baseY*0.88, ox+W*0.53, peakY*1.04);
+        ctx.bezierCurveTo(ox+W*0.65, peakY*0.94, ox+W*0.77, baseY*0.91, ox+W*0.87, peakY*0.99);
+        ctx.stroke();
+      }
 
-    // Sunlit ridge highlight
-    ctx.strokeStyle = 'rgba(255,190,90,0.18)';
-    ctx.lineWidth = 2.5;
-    for (let rep = -1; rep <= 1; rep++) {
-      const ox = rep * W - scroll;
-      ctx.beginPath();
-      ctx.moveTo(ox + W*0.15, base*0.62);
-      ctx.bezierCurveTo(ox + W*0.28, base*0.69, ox + W*0.4, base*0.87, ox + W*0.52, base*0.69);
-      ctx.bezierCurveTo(ox + W*0.65, base*0.58, ox + W*0.75, base*0.77, ox + W*0.85, base*0.63);
-      ctx.stroke();
-    }
-
-    // Atmospheric haze on top of distant dunes
-    ctx.fillStyle = hazeLayer;
-    ctx.fillRect(0, base * 0.55, W, base * 0.45);
+      // Atmospheric depth haze (stronger for further layers)
+      const hazeAlpha = 0.18 - li * 0.04;
+      const haze = ctx.createLinearGradient(0, peakY, 0, baseY);
+      haze.addColorStop(0, `rgba(200,120,50,0)`);
+      haze.addColorStop(1, `rgba(220,140,60,${hazeAlpha})`);
+      ctx.fillStyle = haze;
+      ctx.fillRect(0, peakY, W, baseY - peakY);
+    });
   }
 
   _drawMidDunes(W, H) {
     const ctx    = this.ctx;
     const scroll = (this.cameraX * CONFIG.PARALLAX[2]) % W;
-    const base   = H * 0.63; // ground starts here
-    const top    = H * 0.575;
+    const baseY  = H * 0.63;
+    const peakY  = H * 0.555;
 
-    // Dark shadow base
-    ctx.fillStyle = 'rgba(100,55,18,0.9)';
+    // Shadow base
+    ctx.fillStyle = '#7a3e10';
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox,          base);
-      ctx.bezierCurveTo(ox + W*0.10, base*0.83, ox + W*0.22, base*0.89, ox + W*0.35, base*0.97);
-      ctx.bezierCurveTo(ox + W*0.48, base*0.83, ox + W*0.58, base*0.78, ox + W*0.70, base*0.92);
-      ctx.bezierCurveTo(ox + W*0.82, base*0.80, ox + W*0.90, base*0.86, ox + W,      base);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(ox, baseY);
+      ctx.bezierCurveTo(ox+W*0.09, baseY*0.868, ox+W*0.21, baseY*0.905, ox+W*0.34, baseY*0.972);
+      ctx.bezierCurveTo(ox+W*0.47, baseY*0.868, ox+W*0.57, baseY*0.826, ox+W*0.69, baseY*0.942);
+      ctx.bezierCurveTo(ox+W*0.81, baseY*0.838, ox+W*0.90, baseY*0.890, ox+W,      baseY);
+      ctx.lineTo(ox+W, baseY); ctx.lineTo(ox, baseY);
+      ctx.closePath(); ctx.fill();
     }
 
-    // Main mid-dune — warm golden sand
-    const mg = ctx.createLinearGradient(0, top, 0, base);
-    mg.addColorStop(0,   '#dba060');
-    mg.addColorStop(0.4, '#c88840');
-    mg.addColorStop(1,   '#b06828');
+    // Main dune — warm golden sand, 3-stop
+    const mg = ctx.createLinearGradient(0, peakY, 0, baseY);
+    mg.addColorStop(0,   '#e0a858');
+    mg.addColorStop(0.45,'#c88838');
+    mg.addColorStop(1,   '#a86820');
     ctx.fillStyle = mg;
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox,          base);
-      ctx.bezierCurveTo(ox + W*0.10, base*0.80, ox + W*0.22, base*0.87, ox + W*0.35, base*0.95);
-      ctx.bezierCurveTo(ox + W*0.48, base*0.80, ox + W*0.58, base*0.74, ox + W*0.70, base*0.89);
-      ctx.bezierCurveTo(ox + W*0.82, base*0.76, ox + W*0.90, base*0.83, ox + W,      base);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(ox, baseY);
+      ctx.bezierCurveTo(ox+W*0.10, baseY*0.854, ox+W*0.22, baseY*0.893, ox+W*0.35, baseY*0.962);
+      ctx.bezierCurveTo(ox+W*0.48, baseY*0.854, ox+W*0.58, baseY*0.810, ox+W*0.70, baseY*0.930);
+      ctx.bezierCurveTo(ox+W*0.82, baseY*0.822, ox+W*0.91, baseY*0.876, ox+W,      baseY);
+      ctx.lineTo(ox+W, baseY); ctx.lineTo(ox, baseY);
+      ctx.closePath(); ctx.fill();
     }
 
-    // Bright sunlit ridge
-    ctx.strokeStyle = 'rgba(255,220,130,0.30)';
+    // Bright ridge highlight
+    ctx.strokeStyle = 'rgba(255,228,140,0.32)';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox + W*0.10, base*0.80);
-      ctx.bezierCurveTo(ox + W*0.22, base*0.87, ox + W*0.35, base*0.95, ox + W*0.48, base*0.80);
-      ctx.bezierCurveTo(ox + W*0.58, base*0.74, ox + W*0.70, base*0.89, ox + W*0.82, base*0.76);
+      ctx.moveTo(ox+W*0.10, baseY*0.854);
+      ctx.bezierCurveTo(ox+W*0.22, baseY*0.893, ox+W*0.35, baseY*0.962, ox+W*0.48, baseY*0.854);
+      ctx.bezierCurveTo(ox+W*0.58, baseY*0.810, ox+W*0.70, baseY*0.930, ox+W*0.82, baseY*0.822);
       ctx.stroke();
     }
-
-    // Secondary specular highlight (thinner, brighter)
-    ctx.strokeStyle = 'rgba(255,240,180,0.15)';
+    // Thin specular shimmer
+    ctx.strokeStyle = 'rgba(255,248,200,0.16)';
     ctx.lineWidth = 1.5;
     for (let rep = -1; rep <= 1; rep++) {
       const ox = rep * W - scroll;
       ctx.beginPath();
-      ctx.moveTo(ox + W*0.10, base*0.795);
-      ctx.bezierCurveTo(ox + W*0.22, base*0.865, ox + W*0.35, base*0.945, ox + W*0.48, base*0.795);
-      ctx.bezierCurveTo(ox + W*0.58, base*0.735, ox + W*0.70, base*0.885, ox + W*0.82, base*0.755);
+      ctx.moveTo(ox+W*0.10, baseY*0.850);
+      ctx.bezierCurveTo(ox+W*0.22, baseY*0.889, ox+W*0.35, baseY*0.958, ox+W*0.48, baseY*0.850);
+      ctx.bezierCurveTo(ox+W*0.58, baseY*0.806, ox+W*0.70, baseY*0.926, ox+W*0.82, baseY*0.818);
       ctx.stroke();
     }
   }
 
   _drawGround(W, H) {
-    const ctx = this.ctx;
+    const ctx     = this.ctx;
     const groundY = H * 0.63;
+    const groundH = H - groundY;
 
-    // Base sand gradient
+    // ── Base sand: 4-stop gradient for richness ──
     const grad = ctx.createLinearGradient(0, groundY, 0, H);
-    grad.addColorStop(0,    '#f0b050');
-    grad.addColorStop(0.15, '#e09840');
-    grad.addColorStop(0.5,  '#c87830');
-    grad.addColorStop(1,    '#a05e20');
+    grad.addColorStop(0,    '#f2b858');
+    grad.addColorStop(0.12, '#e4a038');
+    grad.addColorStop(0.45, '#c87c28');
+    grad.addColorStop(1,    '#9a5a18');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillRect(0, groundY, W, groundH);
 
-    // Sand texture: subtle ripple lines
-    ctx.strokeStyle = 'rgba(255,200,100,0.06)';
+    // ── Sand ripple texture (diagonal lines in perspective) ──
+    const ripScroll = (this.cameraX * 0.45) % 36;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,210,110,0.055)';
     ctx.lineWidth = 1;
-    const rippleScroll = (this.cameraX * 0.4) % 40;
-    for (let rx = -40; rx < W + 40; rx += 40) {
-      const x = rx - rippleScroll;
+    for (let rx = -36; rx < W + 36; rx += 36) {
+      const x = rx - ripScroll;
       ctx.beginPath();
       ctx.moveTo(x, groundY);
-      ctx.lineTo(x + 20, H);
+      ctx.lineTo(x + 22, H);
       ctx.stroke();
     }
+    ctx.restore();
 
-    // Near-ground lighter strip
-    const nearGrad = ctx.createLinearGradient(0, groundY, 0, groundY + H * 0.04);
-    nearGrad.addColorStop(0, 'rgba(255,220,120,0.35)');
-    nearGrad.addColorStop(1, 'rgba(255,220,120,0)');
-    ctx.fillStyle = nearGrad;
-    ctx.fillRect(0, groundY, W, H * 0.04);
+    // ── Horizontal sand ripple bands (distance perspective) ──
+    ctx.save();
+    for (let band = 0; band < 6; band++) {
+      const bandY = groundY + groundH * (0.12 + band * 0.14);
+      const bandScroll = (this.cameraX * (0.5 + band * 0.08)) % 60;
+      ctx.strokeStyle = `rgba(255,200,100,${0.035 - band * 0.004})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([30, 28 + band * 4]);
+      ctx.lineDashOffset = -bandScroll;
+      ctx.beginPath();
+      ctx.moveTo(0, bandY);
+      ctx.lineTo(W, bandY);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
 
-    // Lane dividers — subtle dashed lines
+    // ── Ground-horizon sunlit edge ──
+    const sunEdge = ctx.createLinearGradient(0, groundY, 0, groundY + H*0.05);
+    sunEdge.addColorStop(0, 'rgba(255,230,140,0.38)');
+    sunEdge.addColorStop(1, 'rgba(255,230,140,0)');
+    ctx.fillStyle = sunEdge;
+    ctx.fillRect(0, groundY, W, H * 0.05);
+
+    // ── Lane dividers (subtle, dashed) ──
     const laneCount = CONFIG.NUM_OSTRICHES;
     const groundBot = H * 0.93;
     const usableH   = groundBot - groundY;
     const laneStep  = usableH / laneCount;
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([18, 14]);
+    ctx.setLineDash([20, 16]);
+    const laneScroll = (this.cameraX * 1.0) % 36;
+    ctx.lineDashOffset = -laneScroll;
     for (let i = 1; i < laneCount; i++) {
       const y = groundY + laneStep * i;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(W, y);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    // Hard border at top of ground
-    ctx.strokeStyle = 'rgba(180,100,30,0.6)';
+    // ── Ground top border ──
+    ctx.strokeStyle = 'rgba(160,88,24,0.55)';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, groundY);
-    ctx.lineTo(W, groundY);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
   }
 
   _drawLanes(W, H) {
@@ -1036,8 +1044,8 @@ class RaceEngine {
     });
   }
 
-  // ─── STADIUM GRANDSTANDS (clean impressionistic) ───
-  _drawStands(W, H) {
+  // ─── REMOVED: stands replaced by desert landscape ───
+  _drawStands_DISABLED(W, H) {
     const ctx = this.ctx;
     const t   = this.elapsed / 1000;
 
